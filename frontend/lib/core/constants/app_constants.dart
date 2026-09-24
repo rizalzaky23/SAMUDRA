@@ -1,6 +1,6 @@
 class AppConstants {
   // API
-  static const apiBaseUrl = 'http://localhost:3000/api';
+  static const apiBaseUrl = 'https://samudra.rizalzaky.cloud/api';
   
   // Storage Keys
   static const accessTokenKey = 'access_token';

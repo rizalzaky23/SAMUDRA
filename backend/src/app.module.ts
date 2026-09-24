@@ -28,7 +28,7 @@ import { ScheduleModule } from '@nestjs/schedule';
         password: configService.get<string>('DB_PASSWORD', 'samudra_password'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
-        synchronize: configService.get<string>('NODE_ENV') === 'development',
+        synchronize: configService.get<string>('DB_SYNC') === 'true' || configService.get<string>('NODE_ENV') === 'development',
         logging: configService.get<string>('NODE_ENV') === 'development',
       }),
     }),

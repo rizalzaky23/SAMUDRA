@@ -1,36 +1,50 @@
 version: '3.8'
 
 services:
-  postgres:
+  samudra-db:
     image: postgres:16-alpine
-    container_name: samudra_postgres
+    container_name: samudra_db
     restart: unless-stopped
     environment:
       POSTGRES_DB: samudra_db
       POSTGRES_USER: samudra_user
-      POSTGRES_PASSWORD: samudra_password
+      POSTGRES_PASSWORD: samudra_password_prod
     ports:
-      - '5432:5432'
+      - '127.0.0.1:5433:5432'
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - samudra_pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U samudra_user -d samudra_db']
       interval: 10s
       timeout: 5s
       retries: 5
 
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: samudra_pgadmin
+  samudra-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: samudra_backend
     restart: unless-stopped
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@samudra.local
-      PGADMIN_DEFAULT_PASSWORD: admin123
     ports:
-      - '5050:80'
+      - '0.0.0.0:3005:3000'
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: samudra-db
+      DB_PORT: 5432
+      DB_NAME: samudra_db
+      DB_USER: samudra_user
+      DB_PASSWORD: samudra_password_prod
+      DB_SYNC: 'true'
+      JWT_SECRET: samudra_jwt_super_secret_key_2026_prod
+      JWT_EXPIRES_IN: 15m
+      JWT_REFRESH_SECRET: samudra_refresh_super_secret_key_2026_prod
+      JWT_REFRESH_EXPIRES_IN: 7d
+      BMKG_API_BASE_URL: https://data.bmkg.go.id/DataMKG/TEWS
+      BMKG_POLLING_INTERVAL_MS: 60000
     depends_on:
-      postgres:
+      samudra-db:
         condition: service_healthy
 
 volumes:
-  postgres_data:
+  samudra_pgdata:
