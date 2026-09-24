@@ -8,8 +8,10 @@ import { TasksModule } from './tasks/tasks.module';
 import { EarthquakesModule } from './earthquakes/earthquakes.module';
 
 import { ScheduleModule } from '@nestjs/schedule';
+import { AppController } from './app.controller';
 
 @Module({
+  controllers: [AppController],
   imports: [
     ScheduleModule.forRoot(),
     ConfigModule.forRoot({
