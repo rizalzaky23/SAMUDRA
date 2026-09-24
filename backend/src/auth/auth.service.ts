@@ -1,0 +1,124 @@
+import {
+  Injectable,
+  ConflictException,
+  UnauthorizedException,
+  BadRequestException,
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import * as bcrypt from 'bcrypt';
+import { UsersService } from '../users/users.service';
+import { RegisterDto, LoginDto } from './dto/auth.dto';
+import { User } from '../users/entities/user.entity';
+
+@Injectable()
+export class AuthService {
+  constructor(
+    private usersService: UsersService,
+    private jwtService: JwtService,
+    private configService: ConfigService,
+  ) {}
+
+  async register(dto: RegisterDto) {
+    const existing = await this.usersService.findByEmail(dto.email);
+    if (existing) {
+      throw new ConflictException('Email sudah terdaftar');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.password, 12);
+    const user = await this.usersService.create({
+      name: dto.name,
+      email: dto.email,
+      passwordHash,
+      phone: dto.phone,
+    });
+
+    return this.generateTokens(user);
+  }
+
+  async login(dto: LoginDto) {
+    const user = await this.usersService.findByEmail(dto.email);
+    if (!user || !user.passwordHash) {
+      throw new UnauthorizedException('Email atau password salah');
+    }
+
+    const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
+    if (!isMatch) {
+      throw new UnauthorizedException('Email atau password salah');
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('Akun Anda dinonaktifkan');
+    }
+
+    return this.generateTokens(user);
+  }
+
+  async loginWithGoogle(googleUser: {
+    googleId: string;
+    email: string;
+    name: string;
+    avatarUrl?: string;
+  }) {
+    let user = await this.usersService.findByEmail(googleUser.email);
+
+    if (!user) {
+      user = await this.usersService.create({
+        name: googleUser.name,
+        email: googleUser.email,
+        googleId: googleUser.googleId,
+        avatarUrl: googleUser.avatarUrl,
+        passwordHash: null,
+      });
+    } else if (!user.googleId) {
+      await this.usersService.update(user.id, { googleId: googleUser.googleId });
+    }
+
+    return this.generateTokens(user);
+  }
+
+  async refreshToken(refreshToken: string) {
+    try {
+      const payload = this.jwtService.verify(refreshToken, {
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+      });
+      const user = await this.usersService.findById(payload.sub);
+      if (!user || !user.isActive) {
+        throw new UnauthorizedException();
+      }
+      return this.generateTokens(user);
+    } catch {
+      throw new UnauthorizedException('Refresh token tidak valid atau sudah kadaluarsa');
+    }
+  }
+
+  async guestAccess() {
+    return {
+      accessToken: null,
+      user: { role: 'guest', name: 'Tamu' },
+      isGuest: true,
+    };
+  }
+
+  private generateTokens(user: User) {
+    const payload = { sub: user.id, email: user.email, role: user.role };
+
+    const accessToken = this.jwtService.sign(payload, {
+      secret: this.configService.get<string>('JWT_SECRET'),
+      expiresIn: this.configService.get<string>('JWT_EXPIRES_IN', '15m') as any,
+    });
+
+    const refreshToken = this.jwtService.sign(payload, {
+      secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+      expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES_IN', '7d') as any,
+    });
+
+    const { passwordHash, ...userSafe } = user as any;
+
+    return {
+      accessToken,
+      refreshToken,
+      user: userSafe,
+    };
+  }
+}
