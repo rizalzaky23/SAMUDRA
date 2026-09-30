@@ -3,7 +3,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 class AppConstants {
   // API — reads from .env (API_BASE_URL)
   static String get apiBaseUrl =>
-      dotenv.env['API_BASE_URL'] ?? 'http://10.0.2.2:3000/api';
+      dotenv.env['API_BASE_URL'] ?? 'https://samudra.rizalzaky.cloud/api';
   
   // Storage Keys
   static const accessTokenKey = 'access_token';

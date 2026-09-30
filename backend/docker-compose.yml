@@ -42,6 +42,9 @@ services:
       JWT_REFRESH_EXPIRES_IN: 7d
       BMKG_API_BASE_URL: https://data.bmkg.go.id/DataMKG/TEWS
       BMKG_POLLING_INTERVAL_MS: 60000
+      GOOGLE_CLIENT_ID: 772157858952-jtuupdldo13hsjghk1rc5al957qr1ako.apps.googleusercontent.com
+      GOOGLE_CLIENT_SECRET: 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
+      GOOGLE_CALLBACK_URL: https://samudra.rizalzaky.cloud/api/auth/google/callback
     depends_on:
       samudra-db:
         condition: service_healthy
