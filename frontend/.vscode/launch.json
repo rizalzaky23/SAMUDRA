@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "frontend (Flutter Pixel 10 Pro XL)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "Pixel_10_Pro_XL"
+    },
+    {
+      "name": "frontend (Flutter)",
+      "request": "launch",
+      "type": "dart"
+    }
+  ]
+}

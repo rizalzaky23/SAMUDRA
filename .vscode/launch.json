@@ -1,0 +1,34 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "frontend (Flutter Pixel 10 Pro XL)",
+      "request": "launch",
+      "type": "dart",
+      "cwd": "frontend",
+      "deviceId": "Pixel_10_Pro_XL"
+    },
+    {
+      "name": "frontend (Flutter Emulator 5554)",
+      "request": "launch",
+      "type": "dart",
+      "cwd": "frontend",
+      "deviceId": "emulator-5554"
+    },
+    {
+      "name": "frontend (Flutter - Any Connected)",
+      "request": "launch",
+      "type": "dart",
+      "cwd": "frontend"
+    },
+    {
+      "name": "backend (NestJS Dev)",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/backend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start:dev"],
+      "console": "integratedTerminal"
+    }
+  ]
+}

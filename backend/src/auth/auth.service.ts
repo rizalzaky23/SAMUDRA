@@ -7,6 +7,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import { OAuth2Client } from 'google-auth-library';
 import { UsersService } from '../users/users.service';
 import { RegisterDto, LoginDto } from './dto/auth.dto';
 import { User } from '../users/entities/user.entity';
@@ -75,6 +76,37 @@ export class AuthService {
     }
 
     return this.generateTokens(user);
+  }
+
+  /**
+   * Mobile-native Google Sign-In flow.
+   * Flutter sends an idToken from google_sign_in → we verify it with Google → return our JWT.
+   */
+  async loginWithGoogleIdToken(idToken: string) {
+    const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
+    const client = new OAuth2Client(clientId);
+
+    let ticket: any;
+    try {
+      ticket = await client.verifyIdToken({
+        idToken,
+        audience: clientId,
+      });
+    } catch {
+      throw new UnauthorizedException('idToken Google tidak valid');
+    }
+
+    const payload = ticket.getPayload();
+    if (!payload?.email) {
+      throw new UnauthorizedException('Email tidak ditemukan di profil Google');
+    }
+
+    return this.loginWithGoogle({
+      googleId: payload.sub,
+      email: payload.email,
+      name: payload.name ?? payload.email.split('@')[0],
+      avatarUrl: payload.picture,
+    });
   }
 
   async refreshToken(refreshToken: string) {

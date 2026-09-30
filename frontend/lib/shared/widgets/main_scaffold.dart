@@ -11,27 +11,27 @@ class MainScaffold extends StatelessWidget {
   static const _tabs = [
     _TabItem(
         icon: Icons.home_outlined,
-        activeIcon: Icons.home_rounded,
+        activeIcon: Icons.home_outlined,
         label: 'Beranda',
         path: '/home'),
     _TabItem(
         icon: Icons.map_outlined,
-        activeIcon: Icons.map_rounded,
+        activeIcon: Icons.map_outlined,
         label: 'Peta',
         path: '/map'),
     _TabItem(
-        icon: Icons.history_outlined,
+        icon: Icons.history_rounded,
         activeIcon: Icons.history_rounded,
         label: 'Riwayat',
         path: '/history'),
     _TabItem(
-        icon: Icons.phone_in_talk_outlined,
-        activeIcon: Icons.phone_in_talk_rounded,
+        icon: Icons.phone_outlined,
+        activeIcon: Icons.phone_outlined,
         label: 'Darurat',
         path: '/emergency'),
     _TabItem(
         icon: Icons.person_outline_rounded,
-        activeIcon: Icons.person_rounded,
+        activeIcon: Icons.person_outline_rounded,
         label: 'Profil',
         path: '/profile'),
   ];
@@ -54,18 +54,19 @@ class MainScaffold extends StatelessWidget {
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 12,
-              offset: const Offset(0, -2),
+              blurRadius: 16,
+              offset: const Offset(0, -4),
             ),
           ],
         ),
         child: SafeArea(
           top: false,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
+            padding: const EdgeInsets.fromLTRB(0, 10, 0, 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: List.generate(_tabs.length, (i) {
@@ -80,11 +81,11 @@ class MainScaffold extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          isActive ? tab.activeIcon : tab.icon,
+                          tab.icon,
                           size: 24,
                           color: isActive
-                              ? AppColors.primary
-                              : AppColors.textMuted,
+                              ? const Color(0xFF2563EB)
+                              : const Color(0xFF94A3B8),
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -95,8 +96,8 @@ class MainScaffold extends StatelessWidget {
                                 ? FontWeight.w600
                                 : FontWeight.w400,
                             color: isActive
-                                ? AppColors.primary
-                                : AppColors.textMuted,
+                                ? const Color(0xFF2563EB)
+                                : const Color(0xFF94A3B8),
                           ),
                         ),
                       ],
