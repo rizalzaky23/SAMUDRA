@@ -8,6 +8,8 @@ import '../../earthquake/providers/earthquake_provider.dart';
 // Provider to toggle between Status Normal (Blue) & Status Bahaya (Red)
 final homeDangerModeProvider = StateProvider<bool>((ref) => false);
 
+const double kSheetOverlap = 44;
+
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -24,10 +26,16 @@ class HomeScreen extends ConsumerWidget {
           orElse: () => false,
         );
 
+    // Bell shows red badge only when there IS tsunami potential
+    final hasTsunamiWarning = earthquakeAsync.maybeWhen(
+      data: (d) => d.earthquake.potentialTsunami || d.risk == 'Awas',
+      orElse: () => false,
+    );
+
     final topPadding = MediaQuery.of(context).padding.top;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: const Color(0xFFF4F6FB),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
         child: Column(
@@ -35,27 +43,17 @@ class HomeScreen extends ConsumerWidget {
           children: [
             // ───────────────────────────────────────────────────────────
             // HEADER: blue gradient + two translucent wave layers.
-            //
-            // clipBehavior: Clip.none lets the wave CustomPaint overflow
-            // 40px BELOW the Stack's layout bounds. The content card is the
-            // next sibling in the Column, so it paints AFTER (higher z) and
-            // naturally covers the overflow — leaving only the top 40px of
-            // the wave visible as the ribbon inside the blue area.
-            //
-            // Result: zero layout gap, no Transform, no negative margins.
             // ───────────────────────────────────────────────────────────
             Stack(
-              clipBehavior: Clip.none,
               children: [
                 // Blue gradient container.
-                // bottom: 40 = the height of the visible wave ribbon.
                 Container(
                   width: double.infinity,
                   padding: EdgeInsets.only(
                     top: topPadding + 6,
                     left: 20,
                     right: 20,
-                    bottom: 40,
+                    bottom: 40 + kSheetOverlap,
                   ),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -69,7 +67,9 @@ class HomeScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _buildTopBar(context, ref, isDanger: isDanger),
+                      _buildTopBar(context, ref,
+                          isDanger: isDanger,
+                          hasTsunamiWarning: hasTsunamiWarning),
                       const SizedBox(height: 14),
                       isDanger
                           ? _buildDangerHeaderInfo()
@@ -78,15 +78,13 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ),
 
-                // Wave painter — 80px tall, centered on the Stack's bottom.
-                // bottom: -40 → top 40px is INSIDE the Stack (visible blue ribbon).
-                //               bottom 40px OVERFLOWS (covered by content card).
+                // Wave painter — 90px tall at the bottom of header
                 Positioned(
                   left: 0,
                   right: 0,
-                  bottom: -40,
+                  bottom: 0,
                   child: CustomPaint(
-                    size: Size(screenWidth, 80),
+                    size: Size(screenWidth, 90),
                     painter: const _HeaderWavePainter(),
                   ),
                 ),
@@ -94,28 +92,32 @@ class HomeScreen extends ConsumerWidget {
             ),
 
             // ───────────────────────────────────────────────────────────
-            // CONTENT CARD: white, rounded top corners (r=30).
-            // Starts at the Stack's layout bottom — the wave overflow behind
-            // it is automatically hidden by paint order.
+            // CONTENT CARD: white, rounded top corners with overlap.
             // ───────────────────────────────────────────────────────────
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(30),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.07),
-                    blurRadius: 16,
-                    offset: const Offset(0, -2),
+            Transform.translate(
+              offset: const Offset(0, -kSheetOverlap),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF4F6FB),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.elliptical(64, kSheetOverlap),
+                    topRight: Radius.elliptical(64, kSheetOverlap),
                   ),
-                ],
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 16,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+                  child: isDanger
+                      ? _buildDangerContent(context)
+                      : _buildNormalContent(context),
+                ),
               ),
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
-              child: isDanger
-                  ? _buildDangerContent(context)
-                  : _buildNormalContent(context),
             ),
           ],
         ),
@@ -125,7 +127,7 @@ class HomeScreen extends ConsumerWidget {
 
   // ── Top Bar (Shared on both screens) ──
   Widget _buildTopBar(BuildContext context, WidgetRef ref,
-      {required bool isDanger}) {
+      {required bool isDanger, required bool hasTsunamiWarning}) {
     return Row(
       children: [
         // Rounded circular Avatar with initials "AR" (semi-translucent with subtle border)
@@ -195,58 +197,43 @@ class HomeScreen extends ConsumerWidget {
           ),
         ),
 
-        // Notification Bell in rounded box (Tap toggles Danger/Normal view for testing)
-        GestureDetector(
-          onTap: () {
-            ref.read(homeDangerModeProvider.notifier).state = !isDanger;
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  isDanger
-                      ? 'Beralih ke Status Normal (Biru)'
-                      : 'Beralih ke Status Bahaya (Merah)',
-                ),
-                duration: const Duration(seconds: 1),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          },
-          child: Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.25),
-                width: 1,
-              ),
+        // Notification Bell — red badge only when tsunami warning is active
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.18),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.25),
+              width: 1,
             ),
-            child: Stack(
-              children: [
-                const Center(
-                  child: Icon(
-                    Icons.notifications_none_rounded,
-                    color: Colors.white,
-                    size: 21,
-                  ),
+          ),
+          child: Stack(
+            children: [
+              const Center(
+                child: Icon(
+                  Icons.notifications_none_rounded,
+                  color: Colors.white,
+                  size: 21,
                 ),
-                // Red unread dot
+              ),
+              // Red warning badge — hanya saat ada potensi tsunami
+              if (hasTsunamiWarning)
                 Positioned(
-                  top: 9,
-                  right: 9,
+                  top: 8,
+                  right: 8,
                   child: Container(
-                    width: 7.5,
-                    height: 7.5,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFEF4444),
+                    width: 9,
+                    height: 9,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444),
                       shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
                     ),
                   ),
                 ),
-              ],
-            ),
+            ],
           ),
         ),
       ],
@@ -1193,7 +1180,17 @@ class _HeaderWavePainter extends CustomPainter {
       ..lineTo(w, h)
       ..lineTo(0, h)
       ..close();
-    canvas.drawPath(p1, Paint()..color = Colors.white.withValues(alpha: 0.10));
+    final paint1 = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.white.withValues(alpha: 0.12),
+          Colors.white.withValues(alpha: 0.0),
+        ],
+        stops: const [0.0, 0.8],
+      ).createShader(Rect.fromLTWH(0, 0, w, h));
+    canvas.drawPath(p1, paint1);
 
     // Wave 2 — closer layer, peak shifted to center-right (~55% x), brighter
     final p2 = Path()
@@ -1206,7 +1203,17 @@ class _HeaderWavePainter extends CustomPainter {
       ..lineTo(w, h)
       ..lineTo(0, h)
       ..close();
-    canvas.drawPath(p2, Paint()..color = Colors.white.withValues(alpha: 0.17));
+    final paint2 = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.white.withValues(alpha: 0.20),
+          Colors.white.withValues(alpha: 0.0),
+        ],
+        stops: const [0.0, 0.8],
+      ).createShader(Rect.fromLTWH(0, 0, w, h));
+    canvas.drawPath(p2, paint2);
   }
 
   @override
