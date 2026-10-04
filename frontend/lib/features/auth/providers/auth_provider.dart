@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -47,8 +47,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
   late final GoogleSignIn _googleSignIn;
 
   AuthNotifier(this._storage) : super(const AuthState()) {
+    final webClientId = dotenv.env['GOOGLE_CLIENT_ID'] ?? dotenv.env['GOOGLE_SERVER_CLIENT_ID'];
     _googleSignIn = GoogleSignIn(
       scopes: ['email', 'profile'],
+      clientId: kIsWeb ? webClientId : null,
       serverClientId: dotenv.env['GOOGLE_SERVER_CLIENT_ID'],
     );
     _init();
@@ -88,6 +90,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> loginWithGoogle() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
+      final webClientId = dotenv.env['GOOGLE_CLIENT_ID'] ?? dotenv.env['GOOGLE_SERVER_CLIENT_ID'];
+      if (kIsWeb && (webClientId == null || webClientId.trim().isEmpty || webClientId.contains('your_google'))) {
+        state = state.copyWith(
+          isLoading: false,
+          error: 'Google Client ID belum dikonfigurasi untuk Web. Silakan tambahkan GOOGLE_CLIENT_ID di file frontend/.env',
+        );
+        return;
+      }
+
       final account = await _googleSignIn.signIn();
       if (account == null) {
         // User cancelled
@@ -153,7 +164,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
       debugPrint('Stack: $stack');
       final msg = e.toString();
       String displayError;
-      if (msg.contains('sign_in_canceled') ||
+      if (msg.contains('appClientId != null') ||
+          msg.contains('ClientID not set') ||
+          msg.contains('google-signin-client_id')) {
+        displayError =
+            'Google Client ID belum dikonfigurasi untuk Web. Pastikan GOOGLE_CLIENT_ID disetel di file frontend/.env';
+      } else if (msg.contains('sign_in_canceled') ||
           msg.contains('canceled') ||
           msg.contains('cancelled')) {
         displayError = 'Login dibatalkan.';
