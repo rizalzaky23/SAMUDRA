@@ -2,84 +2,210 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/router/app_router.dart';
+import '../../../core/providers/settings_provider.dart';
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  bool _locationPermissionGranted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkLocationPermission();
+  }
+
+  Future<void> _checkLocationPermission() async {
+    final status = await Geolocator.checkPermission();
+    if (mounted) {
+      setState(() {
+        _locationPermissionGranted = status == LocationPermission.always ||
+            status == LocationPermission.whileInUse;
+      });
+    }
+  }
+
+  Future<void> _handleLocationToggle(bool value) async {
+    final settings = ref.read(settingsProvider.notifier);
+
+    if (value) {
+      var status = await Geolocator.checkPermission();
+      if (status == LocationPermission.denied) {
+        status = await Geolocator.requestPermission();
+      }
+      if (status == LocationPermission.deniedForever) {
+        if (mounted) _showPermissionDialog();
+        return;
+      }
+      final granted = status == LocationPermission.always ||
+          status == LocationPermission.whileInUse;
+      if (mounted) setState(() => _locationPermissionGranted = granted);
+      await settings.setLocationRealtime(granted);
+    } else {
+      await settings.setLocationRealtime(false);
+      if (mounted) {
+        _showSnackbar(
+          'Izin lokasi dimatikan. Buka Pengaturan untuk mengaktifkan kembali.',
+          icon: Icons.location_off_rounded,
+        );
+      }
+    }
+  }
+
+  void _showPermissionDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Izin Lokasi Ditolak',
+          style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          'Akses lokasi telah diblokir secara permanen. Buka Pengaturan Aplikasi untuk mengaktifkannya.',
+          style: GoogleFonts.inter(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('Batal',
+                style: GoogleFonts.inter(color: AppColors.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              await Geolocator.openAppSettings();
+              await _checkLocationPermission();
+            },
+            child: Text('Buka Pengaturan',
+                style: GoogleFonts.inter(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSnackbar(String message, {IconData? icon}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        backgroundColor: const Color(0xFF1E293B),
+        content: Row(
+          children: [
+            if (icon != null) ...[
+              Icon(icon, color: Colors.white70, size: 18),
+              const SizedBox(width: 10),
+            ],
+            Expanded(
+              child: Text(message,
+                  style: GoogleFonts.inter(fontSize: 13, color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showLanguageSheet() {
+    final langs = ['Indonesia', 'English'];
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Pilih Bahasa',
+              style: GoogleFonts.inter(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary),
+            ),
+            const SizedBox(height: 12),
+            ...langs.map((lang) {
+              final current =
+                  ref.read(settingsProvider).language == lang;
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(lang,
+                    style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight:
+                            current ? FontWeight.w600 : FontWeight.w400,
+                        color: current
+                            ? AppColors.primary
+                            : AppColors.textPrimary)),
+                trailing: current
+                    ? const Icon(Icons.check_circle_rounded,
+                        color: AppColors.primary)
+                    : null,
+                onTap: () {
+                  ref.read(settingsProvider.notifier).setLanguage(lang);
+                  Navigator.of(ctx).pop();
+                  _showSnackbar('Bahasa diubah ke $lang',
+                      icon: Icons.language_rounded);
+                },
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
+    final settings = ref.watch(settingsProvider);
     final user = authState.user;
-    final initials = _initials(user?.name ?? 'Anda');
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 24),
 
               // ── Profile header ──
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    // Avatar
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Color(0xFF3B5BDB),
-                            Color(0xFF1E40AF),
-                          ],
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          initials,
-                          style: GoogleFonts.inter(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          user?.name ?? 'Pengguna',
-                          style: GoogleFonts.inter(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          user?.email ?? '',
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+              _buildProfileHeader(user),
 
               const SizedBox(height: 28),
 
@@ -91,15 +217,17 @@ class ProfileScreen extends ConsumerWidget {
                 iconBg: const Color(0xFFEEF2FF),
                 iconColor: AppColors.primary,
                 title: 'Langkah evakuasi mandiri',
-                onTap: () {},
+                onTap: () => _showSnackbar('Fitur segera hadir',
+                    icon: Icons.hourglass_top_rounded),
               ),
-              _buildDivider(),
+              const SizedBox(height: 10),
               _buildMenuItem(
                 icon: Icons.inventory_2_outlined,
                 iconBg: const Color(0xFFEEF2FF),
                 iconColor: AppColors.primary,
                 title: 'Peralatan siaga bencana',
-                onTap: () {},
+                onTap: () => _showSnackbar('Fitur segera hadir',
+                    icon: Icons.hourglass_top_rounded),
               ),
 
               const SizedBox(height: 24),
@@ -119,35 +247,47 @@ class ProfileScreen extends ConsumerWidget {
                   children: [
                     _buildToggleItem(
                       title: 'Izin lokasi real-time',
-                      value: true,
-                      onChanged: (_) {},
+                      value: settings.locationRealtime &&
+                          _locationPermissionGranted,
+                      onChanged: _handleLocationToggle,
                     ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Divider(height: 1, color: AppColors.border),
-                    ),
+                    _buildInnerDivider(),
                     _buildToggleItem(
                       title: 'Sirine notifikasi bahaya',
-                      value: true,
-                      onChanged: (_) {},
+                      value: settings.sirenNotif,
+                      onChanged: (v) async {
+                        await ref
+                            .read(settingsProvider.notifier)
+                            .setSirenNotif(v);
+                        _showSnackbar(
+                          v
+                              ? 'Sirine notifikasi diaktifkan'
+                              : 'Sirine notifikasi dimatikan',
+                          icon: v
+                              ? Icons.notifications_active_rounded
+                              : Icons.notifications_off_rounded,
+                        );
+                      },
                     ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Divider(height: 1, color: AppColors.border),
-                    ),
+                    _buildInnerDivider(),
                     _buildToggleItem(
                       title: 'Mode offline',
-                      value: false,
-                      onChanged: (_) {},
+                      value: settings.offlineMode,
+                      onChanged: (v) async {
+                        await ref
+                            .read(settingsProvider.notifier)
+                            .setOfflineMode(v);
+                        _showSnackbar(
+                          v ? 'Mode offline diaktifkan' : 'Mode offline dimatikan',
+                          icon: v ? Icons.wifi_off_rounded : Icons.wifi_rounded,
+                        );
+                      },
                     ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Divider(height: 1, color: AppColors.border),
-                    ),
+                    _buildInnerDivider(),
                     _buildSettingRow(
                       title: 'Bahasa',
-                      value: 'Indonesia',
-                      onTap: () {},
+                      value: settings.language,
+                      onTap: _showLanguageSheet,
                     ),
                   ],
                 ),
@@ -158,30 +298,7 @@ class ProfileScreen extends ConsumerWidget {
               // ── Logout button ──
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: GestureDetector(
-                  onTap: () async {
-                    await ref.read(authStateProvider.notifier).logout();
-                    if (context.mounted) context.go(AppRoutes.login);
-                  },
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    decoration: BoxDecoration(
-                      color: AppColors.danger.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Center(
-                      child: Text(
-                        'Keluar',
-                        style: GoogleFonts.inter(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.danger,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                child: _buildLogoutButton(),
               ),
 
               const SizedBox(height: 32),
@@ -192,20 +309,228 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSectionLabel(String label) {
+  // ── Profile header with Google photo sync ──
+  Widget _buildProfileHeader(user) {
+    final isGoogle =
+        user != null && user.avatarUrl != null && user.avatarUrl!.isNotEmpty;
+    final initials = _initials(user?.name ?? 'Anda');
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Text(
-        label,
-        style: GoogleFonts.inter(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textSecondary,
-          letterSpacing: 0.2,
+      child: Row(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: isGoogle
+                  ? null
+                  : const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF3B5BDB), Color(0xFF1E40AF)],
+                    ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.25),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: isGoogle
+                ? ClipOval(
+                    child: CachedNetworkImage(
+                      imageUrl: user!.avatarUrl!,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => _avatarInitials(initials),
+                      errorWidget: (_, __, ___) => _avatarInitials(initials),
+                    ),
+                  )
+                : _avatarInitials(initials),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user?.name ?? 'Pengguna',
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  user?.email ?? 'Belum masuk',
+                  style: GoogleFonts.inter(
+                      fontSize: 13, color: AppColors.textSecondary),
+                ),
+                if (isGoogle) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color(0xFF10B981),
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        'Akun Google tersinkron',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          color: const Color(0xFF10B981),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _avatarInitials(String initials) => Center(
+        child: Text(
+          initials,
+          style: GoogleFonts.inter(
+              fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white),
+        ),
+      );
+
+  // ── Location helpers ──
+  Future<void> _injectYogyaLocation() async {
+    _showSnackbar(
+      'Jalankan: adb emu geo fix 110.3695 -7.7956',
+      icon: Icons.terminal_rounded,
+    );
+    try {
+      final permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.always ||
+          permission == LocationPermission.whileInUse) {
+        await _checkLocationPermission();
+        _showSnackbar(
+          'Izin OK. Jalankan: adb emu geo fix 110.3695 -7.7956',
+          icon: Icons.check_circle_rounded,
+        );
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _checkGpsStatus() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    final permission = await Geolocator.checkPermission();
+    await _checkLocationPermission();
+
+    String msg;
+    IconData icon;
+
+    if (!serviceEnabled) {
+      msg = 'Layanan GPS tidak aktif. Aktifkan di pengaturan perangkat.';
+      icon = Icons.gps_off_rounded;
+    } else if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      msg = 'Izin lokasi DITOLAK. Tap toggle "Izin lokasi real-time".';
+      icon = Icons.location_off_rounded;
+    } else {
+      msg = 'GPS aktif ✓  Izin: ${permission.name}';
+      icon = Icons.gps_fixed_rounded;
+    }
+    if (mounted) _showSnackbar(msg, icon: icon);
+  }
+
+  // ── Logout ──
+  Widget _buildLogoutButton() {
+    return GestureDetector(
+      onTap: () async {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20)),
+            title: Text('Keluar dari akun?',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+            content: Text('Anda akan keluar dari SAMUDRA.',
+                style: GoogleFonts.inter(fontSize: 14)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: Text('Batal',
+                    style: GoogleFonts.inter(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.danger,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: Text('Keluar',
+                    style: GoogleFonts.inter(
+                        color: Colors.white, fontWeight: FontWeight.w600)),
+              ),
+            ],
+          ),
+        );
+        if (confirmed == true && mounted) {
+          await ref.read(authStateProvider.notifier).logout();
+          if (mounted) context.go(AppRoutes.login);
+        }
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: AppColors.danger.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+          border:
+              Border.all(color: AppColors.danger.withValues(alpha: 0.15)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.logout_rounded, color: AppColors.danger, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              'Keluar',
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.danger,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+
+  // ── Reusable widgets ──
+  Widget _buildSectionLabel(String label) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
+              letterSpacing: 0.2),
+        ),
+      );
 
   Widget _buildMenuItem({
     required IconData icon,
@@ -234,21 +559,17 @@ class ProfileScreen extends ConsumerWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: iconBg,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                      color: iconBg,
+                      borderRadius: BorderRadius.circular(12)),
                   child: Icon(icon, color: iconColor, size: 22),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
-                  child: Text(
-                    title,
-                    style: GoogleFonts.inter(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
+                  child: Text(title,
+                      style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.textPrimary)),
                 ),
                 const Icon(Icons.arrow_forward_ios_rounded,
                     size: 16, color: AppColors.textMuted),
@@ -260,7 +581,10 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildDivider() => const SizedBox(height: 10);
+  Widget _buildInnerDivider() => const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16),
+        child: Divider(height: 1, color: AppColors.border),
+      );
 
   Widget _buildToggleItem({
     required String title,
@@ -275,9 +599,9 @@ class ProfileScreen extends ConsumerWidget {
             child: Text(
               title,
               style: GoogleFonts.inter(
-                fontSize: 15,
-                color: AppColors.textPrimary,
-              ),
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w400,
+                  color: AppColors.textPrimary),
             ),
           ),
           Switch(
@@ -285,8 +609,10 @@ class ProfileScreen extends ConsumerWidget {
             onChanged: onChanged,
             thumbColor: WidgetStateProperty.all(Colors.white),
             trackColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.selected)) return AppColors.primary;
-              return AppColors.border;
+              if (states.contains(WidgetState.selected)) {
+                return AppColors.primary;
+              }
+              return const Color(0xFFCBD5E1);
             }),
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
@@ -310,18 +636,62 @@ class ProfileScreen extends ConsumerWidget {
               child: Text(
                 title,
                 style: GoogleFonts.inter(
-                  fontSize: 15,
-                  color: AppColors.textPrimary,
-                ),
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w400,
+                    color: AppColors.textPrimary),
               ),
             ),
             Text(
               value,
               style: GoogleFonts.inter(
-                fontSize: 14,
-                color: AppColors.textSecondary,
+                  fontSize: 14, color: AppColors.primary),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionRow({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBg,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                  color: iconBg, borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, color: iconColor, size: 20),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.textPrimary)),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      style: GoogleFonts.inter(
+                          fontSize: 11.5, color: AppColors.textMuted)),
+                ],
               ),
             ),
+            const Icon(Icons.arrow_forward_ios_rounded,
+                size: 14, color: AppColors.textMuted),
           ],
         ),
       ),
@@ -335,6 +705,6 @@ class ProfileScreen extends ConsumerWidget {
     } else if (parts.isNotEmpty && parts[0].isNotEmpty) {
       return parts[0][0].toUpperCase();
     }
-    return 'AR';
+    return 'U';
   }
 }

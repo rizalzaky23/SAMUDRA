@@ -63,6 +63,13 @@ final earthquakeProvider = FutureProvider.autoDispose<RiskAssessment>((ref) asyn
     }
   } catch (_) {}
 
+  // Jika koordinat di luar Indonesia (misal default emulator Mountain View USA), fallback ke Yogyakarta
+  final isOutsideIndonesia = lat > 15 || lat < -15 || lng < 90 || lng > 145;
+  if (isOutsideIndonesia) {
+    lat = -7.7956;
+    lng = 110.3695;
+  }
+
   // 2. Try fetching from BMKG 200 Realtime first (exact live data from bmkg.go.id/gempabumi/gempabumi-realtime)
   try {
     final realtimeList = await BmkgRealtimeService.fetch200RealtimeEarthquakes();

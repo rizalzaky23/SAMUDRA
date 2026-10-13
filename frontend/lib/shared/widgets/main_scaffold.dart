@@ -54,19 +54,20 @@ class MainScaffold extends StatelessWidget {
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 16,
-              offset: const Offset(0, -4),
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 24,
+              spreadRadius: 0,
+              offset: const Offset(0, -6),
             ),
           ],
         ),
         child: SafeArea(
           top: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(0, 10, 0, 8),
+            padding: const EdgeInsets.fromLTRB(8, 12, 8, 10),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: List.generate(_tabs.length, (i) {
@@ -75,8 +76,19 @@ class MainScaffold extends StatelessWidget {
                 return GestureDetector(
                   onTap: () => context.go(tab.path),
                   behavior: HitTestBehavior.opaque,
-                  child: SizedBox(
-                    width: 60,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isActive ? 16 : 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? const Color(0xFF2563EB).withValues(alpha: 0.08)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [

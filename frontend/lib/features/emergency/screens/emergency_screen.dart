@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../../core/theme/app_theme.dart';
 
 class EmergencyScreen extends ConsumerWidget {
@@ -280,7 +281,44 @@ class EmergencyScreen extends ConsumerWidget {
   }
 
   Future<void> _shareLocation() async {
-    // TODO: implement location sharing
+    try {
+      Position? pos;
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (serviceEnabled) {
+        LocationPermission perm = await Geolocator.checkPermission();
+        if (perm == LocationPermission.denied) {
+          perm = await Geolocator.requestPermission();
+        }
+        if (perm == LocationPermission.always || perm == LocationPermission.whileInUse) {
+          pos = await Geolocator.getLastKnownPosition() ??
+              await Geolocator.getCurrentPosition(
+                locationSettings: const LocationSettings(
+                  accuracy: LocationAccuracy.high,
+                  timeLimit: Duration(seconds: 4),
+                ),
+              );
+        }
+      }
+
+      final lat = pos?.latitude ?? -7.7956;
+      final lng = pos?.longitude ?? 110.3695;
+      final mapsUrl = 'https://maps.google.com/?q=$lat,$lng';
+      final text = Uri.encodeComponent(
+        '🚨 PESAN DARURAT SAMUDRA: Saya membutuhkan pertolongan! Lokasi saya saat ini: $mapsUrl (Koordinat: $lat, $lng)',
+      );
+
+      final waUri = Uri.parse('whatsapp://send?text=$text');
+      if (await canLaunchUrl(waUri)) {
+        await launchUrl(waUri);
+      } else {
+        final smsUri = Uri.parse('sms:?body=$text');
+        if (await canLaunchUrl(smsUri)) {
+          await launchUrl(smsUri);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error sharing location: $e');
+    }
   }
 }
 
