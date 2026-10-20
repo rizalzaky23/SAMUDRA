@@ -12,7 +12,7 @@ import { ApiProperty } from '@nestjs/swagger';
 export enum UserRole {
   USER = 'user',
   ADMIN = 'admin',
-  EDITOR = 'editor',
+  SUPER_ADMIN = 'super_admin',
 }
 
 @Entity('users')

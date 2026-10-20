@@ -17,6 +17,9 @@ class UserModel {
     this.isActive = true,
   });
 
+  bool get isAdmin => role == 'admin' || role == 'super_admin';
+  bool get isSuperAdmin => role == 'super_admin';
+
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       id: json['id'] ?? '',
@@ -39,3 +42,4 @@ class UserModel {
         'isActive': isActive,
       };
 }
+

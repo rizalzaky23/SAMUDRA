@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User } from './entities/user.entity';
+import { User, UserRole } from './entities/user.entity';
 
 interface CreateUserData {
   name: string;
@@ -46,6 +46,12 @@ export class UsersService {
     return updated;
   }
 
+  async updateRole(id: string, role: UserRole): Promise<User> {
+    const user = await this.findById(id);
+    if (!user) throw new NotFoundException('User tidak ditemukan');
+    return this.update(id, { role });
+  }
+
   async updateFcmToken(userId: string, fcmToken: string): Promise<void> {
     await this.usersRepo.update(userId, { fcmToken });
   }
@@ -53,4 +59,14 @@ export class UsersService {
   async findAll(): Promise<User[]> {
     return this.usersRepo.find({ order: { createdAt: 'DESC' } });
   }
+
+  async findAllPaginated(page = 1, limit = 20): Promise<{ data: User[]; total: number; page: number; limit: number }> {
+    const [data, total] = await this.usersRepo.findAndCount({
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return { data, total, page, limit };
+  }
 }
+

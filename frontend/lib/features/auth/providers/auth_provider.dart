@@ -64,6 +64,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final savedEmail = await _storage.read(key: 'user_email') ?? '';
         final savedId = await _storage.read(key: 'user_id') ?? '';
         final savedAvatar = await _storage.read(key: 'user_avatar');
+        final savedRole = await _storage.read(key: 'user_role') ?? 'user';
         state = AuthState(
           isAuthenticated: true,
           user: UserModel(
@@ -71,6 +72,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
             name: savedName,
             email: savedEmail,
             avatarUrl: savedAvatar,
+            role: savedRole,
           ),
         );
         return;
@@ -131,6 +133,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
                   key: AppConstants.refreshTokenKey,
                   value: data['refreshToken']);
             }
+            // Save role from backend (penting untuk super_admin auto-promote)
+            final userData = data['user'];
+            if (userData != null && userData['role'] != null) {
+              await _storage.write(
+                  key: 'user_role', value: userData['role'].toString());
+            }
           }
         } catch (e) {
           debugPrint('Backend token exchange skipped: $e');
@@ -138,18 +146,31 @@ class AuthNotifier extends StateNotifier<AuthState> {
         }
       }
 
-      // Build user from Google account info
+      // Build user from backend response (includes role) or fallback to Google info
+      // Try to get role from backend response
+      String userRole = 'user';
+      String userId = account.id;
+      String userName = account.displayName ?? account.email.split('@').first;
+      String? userAvatar = account.photoUrl;
+
+      // If backend returned user data, prefer it
+      // (role is already stored via token exchange above if backend was reachable)
+      final backendRole = await _storage.read(key: 'user_role');
+      if (backendRole != null) userRole = backendRole;
+
       final user = UserModel(
-        id: account.id,
-        name: account.displayName ?? account.email.split('@').first,
+        id: userId,
+        name: userName,
         email: account.email,
-        avatarUrl: account.photoUrl,
+        avatarUrl: userAvatar,
+        role: userRole,
       );
 
       // Persist user data locally
       await _storage.write(key: 'user_id', value: user.id);
       await _storage.write(key: 'user_name', value: user.name);
       await _storage.write(key: 'user_email', value: user.email);
+      await _storage.write(key: 'user_role', value: user.role);
       if (user.avatarUrl != null) {
         await _storage.write(key: 'user_avatar', value: user.avatarUrl!);
       }

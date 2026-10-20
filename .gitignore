@@ -18,6 +18,7 @@ frontend/.env
 # General
 .DS_Store
 *.log
+*.tsbuildinfo
 
 # Exclude Claude skill & NgodingPakeAI
 .claude/

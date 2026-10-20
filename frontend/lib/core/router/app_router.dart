@@ -10,6 +10,11 @@ import '../../features/profile/screens/profile_screen.dart';
 import '../../features/emergency/screens/emergency_screen.dart';
 import '../../features/earthquake/screens/history_screen.dart';
 import '../../features/map/screens/map_screen.dart';
+import '../../features/admin/screens/admin_dashboard_screen.dart';
+import '../../features/admin/screens/admin_articles_screen.dart';
+import '../../features/admin/screens/admin_mitigasi_screen.dart';
+import '../../features/admin/screens/admin_peralatan_screen.dart';
+import '../../features/admin/screens/admin_users_screen.dart';
 
 class AppRoutes {
   static const splash = '/';
@@ -21,6 +26,11 @@ class AppRoutes {
   static const emergency = '/emergency';
   static const evacuation = '/evacuation';
   static const profile = '/profile';
+  static const admin = '/admin';
+  static const adminArticles = '/admin/articles';
+  static const adminMitigasi = '/admin/mitigasi';
+  static const adminPeralatan = '/admin/peralatan';
+  static const adminUsers = '/admin/users';
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -83,6 +93,26 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const ProfileScreen(),
           ),
         ],
+      ),
+      GoRoute(
+        path: AppRoutes.admin,
+        builder: (_, __) => const AdminDashboardScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.adminArticles,
+        builder: (_, __) => const AdminArticlesScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.adminMitigasi,
+        builder: (_, __) => const AdminMitigasiScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.adminPeralatan,
+        builder: (_, __) => const AdminPeralatanScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.adminUsers,
+        builder: (_, __) => const AdminUsersScreen(),
       ),
     ],
   );

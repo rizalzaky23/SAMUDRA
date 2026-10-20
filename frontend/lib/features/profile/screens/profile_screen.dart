@@ -8,6 +8,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/providers/settings_provider.dart';
+import '../../admin/providers/admin_provider.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -188,6 +189,254 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
+  void _showMitigasiSheet() {
+    ref.read(adminProvider.notifier).loadMitigasi();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Consumer(
+        builder: (context, ref, _) {
+          final adminState = ref.watch(adminProvider);
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.75,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.shield_rounded, color: Color(0xFF059669), size: 24),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Langkah Mitigasi Mandiri',
+                        style: GoogleFonts.inter(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: adminState.isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : adminState.mitigasiSteps.isEmpty
+                          ? Center(
+                              child: Text(
+                                'Belum ada panduan mitigasi',
+                                style: GoogleFonts.inter(color: AppColors.textSecondary),
+                              ),
+                            )
+                          : ListView.separated(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: adminState.mitigasiSteps.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 12),
+                              itemBuilder: (ctx, i) {
+                                final item = adminState.mitigasiSteps[i];
+                                return Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF8FAFC),
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        width: 28,
+                                        height: 28,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF059669).withOpacity(0.12),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text(
+                                          '${item.stepNumber}',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: const Color(0xFF059669),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              item.title,
+                                              style: GoogleFonts.inter(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w700,
+                                                color: AppColors.textPrimary,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              item.description,
+                                              style: GoogleFonts.inter(
+                                                fontSize: 13,
+                                                color: AppColors.textSecondary,
+                                                height: 1.4,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showPeralatanSheet() {
+    ref.read(adminProvider.notifier).loadPeralatan();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Consumer(
+        builder: (context, ref, _) {
+          final adminState = ref.watch(adminProvider);
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.75,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.inventory_2_rounded, color: Color(0xFFF59E0B), size: 24),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Peralatan Siaga Bencana',
+                        style: GoogleFonts.inter(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: adminState.isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : adminState.peralatan.isEmpty
+                          ? Center(
+                              child: Text(
+                                'Belum ada daftar peralatan',
+                                style: GoogleFonts.inter(color: AppColors.textSecondary),
+                              ),
+                            )
+                          : ListView.separated(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: adminState.peralatan.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 12),
+                              itemBuilder: (ctx, i) {
+                                final item = adminState.peralatan[i];
+                                return Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF8FAFC),
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              item.name,
+                                              style: GoogleFonts.inter(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w700,
+                                                color: AppColors.textPrimary,
+                                              ),
+                                            ),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFFEF3C7),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              item.category,
+                                              style: GoogleFonts.inter(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                                color: const Color(0xFFB45309),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        item.description,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 13,
+                                          color: AppColors.textSecondary,
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
@@ -209,6 +458,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
               const SizedBox(height: 28),
 
+              // ── Admin section (hanya tampil jika admin / super_admin) ──
+              if (user?.isAdmin == true) ...[
+                _buildSectionLabel('Administrasi'),
+                const SizedBox(height: 8),
+                _buildMenuItem(
+                  icon: Icons.admin_panel_settings_rounded,
+                  iconBg: const Color(0xFFEFF6FF),
+                  iconColor: const Color(0xFF2563EB),
+                  title: 'Panel Admin (${user?.isSuperAdmin == true ? 'Super Admin' : 'Admin'})',
+                  onTap: () => context.push(AppRoutes.admin),
+                ),
+                const SizedBox(height: 24),
+              ],
+
               // ── Edukasi & panduan ──
               _buildSectionLabel('Edukasi & panduan'),
               const SizedBox(height: 8),
@@ -217,8 +480,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 iconBg: const Color(0xFFEEF2FF),
                 iconColor: AppColors.primary,
                 title: 'Langkah evakuasi mandiri',
-                onTap: () => _showSnackbar('Fitur segera hadir',
-                    icon: Icons.hourglass_top_rounded),
+                onTap: _showMitigasiSheet,
               ),
               const SizedBox(height: 10),
               _buildMenuItem(
@@ -226,8 +488,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 iconBg: const Color(0xFFEEF2FF),
                 iconColor: AppColors.primary,
                 title: 'Peralatan siaga bencana',
-                onTap: () => _showSnackbar('Fitur segera hadir',
-                    icon: Icons.hourglass_top_rounded),
+                onTap: _showPeralatanSheet,
               ),
 
               const SizedBox(height: 24),
@@ -408,47 +669,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white),
         ),
       );
-
-  // ── Location helpers ──
-  Future<void> _injectYogyaLocation() async {
-    _showSnackbar(
-      'Jalankan: adb emu geo fix 110.3695 -7.7956',
-      icon: Icons.terminal_rounded,
-    );
-    try {
-      final permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.always ||
-          permission == LocationPermission.whileInUse) {
-        await _checkLocationPermission();
-        _showSnackbar(
-          'Izin OK. Jalankan: adb emu geo fix 110.3695 -7.7956',
-          icon: Icons.check_circle_rounded,
-        );
-      }
-    } catch (_) {}
-  }
-
-  Future<void> _checkGpsStatus() async {
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    final permission = await Geolocator.checkPermission();
-    await _checkLocationPermission();
-
-    String msg;
-    IconData icon;
-
-    if (!serviceEnabled) {
-      msg = 'Layanan GPS tidak aktif. Aktifkan di pengaturan perangkat.';
-      icon = Icons.gps_off_rounded;
-    } else if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
-      msg = 'Izin lokasi DITOLAK. Tap toggle "Izin lokasi real-time".';
-      icon = Icons.location_off_rounded;
-    } else {
-      msg = 'GPS aktif ✓  Izin: ${permission.name}';
-      icon = Icons.gps_fixed_rounded;
-    }
-    if (mounted) _showSnackbar(msg, icon: icon);
-  }
 
   // ── Logout ──
   Widget _buildLogoutButton() {
@@ -646,52 +866,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               style: GoogleFonts.inter(
                   fontSize: 14, color: AppColors.primary),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionRow({
-    required IconData icon,
-    required Color iconColor,
-    required Color iconBg,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                  color: iconBg, borderRadius: BorderRadius.circular(10)),
-              child: Icon(icon, color: iconColor, size: 20),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.textPrimary)),
-                  const SizedBox(height: 2),
-                  Text(subtitle,
-                      style: GoogleFonts.inter(
-                          fontSize: 11.5, color: AppColors.textMuted)),
-                ],
-              ),
-            ),
-            const Icon(Icons.arrow_forward_ios_rounded,
-                size: 14, color: AppColors.textMuted),
           ],
         ),
       ),

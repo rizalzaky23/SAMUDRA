@@ -10,7 +10,7 @@ import * as bcrypt from 'bcrypt';
 import { OAuth2Client } from 'google-auth-library';
 import { UsersService } from '../users/users.service';
 import { RegisterDto, LoginDto } from './dto/auth.dto';
-import { User } from '../users/entities/user.entity';
+import { User, UserRole } from '../users/entities/user.entity';
 
 @Injectable()
 export class AuthService {
@@ -73,6 +73,12 @@ export class AuthService {
       });
     } else if (!user.googleId) {
       await this.usersService.update(user.id, { googleId: googleUser.googleId });
+    }
+
+    // Auto-promote super_admin untuk email owner project
+    const SUPER_ADMIN_EMAIL = 'rizalzaky2302@gmail.com';
+    if (googleUser.email === SUPER_ADMIN_EMAIL && user.role === UserRole.USER) {
+      user = await this.usersService.update(user.id, { role: UserRole.SUPER_ADMIN });
     }
 
     return this.generateTokens(user);
