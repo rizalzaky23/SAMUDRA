@@ -8,6 +8,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../blog/models/article_model.dart';
 import '../../blog/providers/articles_provider.dart';
 import '../../blog/widgets/article_detail_sheet.dart';
+import '../widgets/emergency_guidance_sheet.dart';
 
 // Provider to toggle between Status Normal (Blue) & Status Bahaya (Red)
 final homeDangerModeProvider = StateProvider<bool>((ref) => false);
@@ -818,6 +819,37 @@ class HomeScreen extends ConsumerWidget {
 
         const SizedBox(height: 20),
 
+        // Section: Panduan Kesiapsiagaan Bencana
+        Text(
+          'Kesiapsiagaan bencana',
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF64748B),
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        _buildGuidanceCard(
+          icon: Icons.directions_run_rounded,
+          iconBg: const Color(0xFFDCFCE7),
+          iconColor: const Color(0xFF16A34A),
+          title: 'Langkah evakuasi mandiri',
+          subtitle: 'Panduan mitigasi & tindakan saat gempa/tsunami',
+          onTap: () => showMitigasiBottomSheet(context, ref),
+        ),
+        const SizedBox(height: 10),
+        _buildGuidanceCard(
+          icon: Icons.inventory_2_rounded,
+          iconBg: const Color(0xFFFEF3C7),
+          iconColor: const Color(0xFFD97706),
+          title: 'Peralatan siaga bencana',
+          subtitle: 'Daftar tas siaga darurat & perlengkapan penting',
+          onTap: () => showPeralatanBottomSheet(context, ref),
+        ),
+
+        const SizedBox(height: 20),
+
         // Section: Statistik minggu ini (padding vertikal lebih lega)
         Text(
           'Statistik minggu ini',
@@ -1070,6 +1102,83 @@ class HomeScreen extends ConsumerWidget {
                 fontWeight: FontWeight.w500,
                 color: const Color(0xFF0F172A),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Guidance Card (Langkah evakuasi & peralatan siaga) ──
+  Widget _buildGuidanceCard({
+    required IconData icon,
+    required Color iconBg,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Center(
+                child: Icon(
+                  icon,
+                  color: iconColor,
+                  size: 22,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: const Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: Color(0xFF94A3B8),
+              size: 22,
             ),
           ],
         ),
