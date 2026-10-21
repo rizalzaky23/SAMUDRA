@@ -33,10 +33,32 @@ class ArticleDetailSheet extends StatelessWidget {
     }
   }
 
+  String _formatDate(DateTime date) {
+    try {
+      return DateFormat('d MMMM yyyy', 'id_ID').format(date);
+    } catch (_) {
+      const months = [
+        'Januari',
+        'Februari',
+        'Maret',
+        'April',
+        'Mei',
+        'Juni',
+        'Juli',
+        'Agustus',
+        'September',
+        'Oktober',
+        'November',
+        'Desember'
+      ];
+      return '${date.day} ${months[date.month - 1]} ${date.year}';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final catColor = _categoryColor(article.category);
-    final dateStr = DateFormat('d MMMM yyyy', 'id_ID').format(article.publishedAt ?? article.createdAt);
+    final dateStr = _formatDate(article.publishedAt ?? article.createdAt);
 
     return DraggableScrollableSheet(
       initialChildSize: 0.85,
