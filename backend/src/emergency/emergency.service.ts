@@ -5,36 +5,131 @@ import { MitigasiStep } from './entities/mitigasi-step.entity';
 import { PeralatanSiaga } from './entities/peralatan-siaga.entity';
 import { User } from '../users/entities/user.entity';
 
+import { IsString, IsNotEmpty, IsOptional, IsNumber } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ApiProperty } from '@nestjs/swagger';
+
 // ─── DTOs ─────────────────────────────────────────────────────────────────────
 
 export class CreateMitigasiDto {
+  @ApiProperty()
+  @IsNumber()
+  @Type(() => Number)
   stepNumber: number;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
   title: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
   description: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
   iconName?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
 }
 
 export class UpdateMitigasiDto {
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
   stepNumber?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
   title?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
   description?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
   iconName?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
 }
 
 export class CreatePeralatanDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
   name: string;
-  category: string;
+
+  @ApiProperty({ required: false, default: 'Umum' })
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
   description: string;
+
+  @ApiProperty({ required: false, default: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
   priority?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
   iconName?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
 }
 
 export class UpdatePeralatanDto {
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
   name?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
   category?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
   description?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
   priority?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
   iconName?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
 }
 
 // ─── Service ──────────────────────────────────────────────────────────────────
@@ -78,7 +173,11 @@ export class EmergencyService {
   }
 
   async createPeralatan(dto: CreatePeralatanDto, author: User): Promise<PeralatanSiaga> {
-    const item = this.peralatanRepo.create({ ...dto, authorId: author.id });
+    const item = this.peralatanRepo.create({
+      ...dto,
+      category: dto.category?.trim() || 'Umum',
+      authorId: author.id,
+    });
     return this.peralatanRepo.save(item);
   }
 

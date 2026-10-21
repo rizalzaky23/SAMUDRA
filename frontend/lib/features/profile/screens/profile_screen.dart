@@ -289,6 +289,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                                 color: AppColors.textPrimary,
                                               ),
                                             ),
+                                            if (item.imageUrl != null && item.imageUrl!.isNotEmpty) ...[
+                                              const SizedBox(height: 8),
+                                              ClipRRect(
+                                                borderRadius: BorderRadius.circular(8),
+                                                child: AspectRatio(
+                                                  aspectRatio: 16 / 9,
+                                                  child: CachedNetworkImage(
+                                                    imageUrl: item.imageUrl!,
+                                                    fit: BoxFit.cover,
+                                                    placeholder: (_, __) => Container(
+                                                      color: const Color(0xFFE2E8F0),
+                                                      child: const Center(
+                                                        child: SizedBox(
+                                                          width: 18,
+                                                          height: 18,
+                                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                             const SizedBox(height: 4),
                                             Text(
                                               item.description,
@@ -414,6 +438,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                           ),
                                         ],
                                       ),
+                                      if (item.imageUrl != null && item.imageUrl!.isNotEmpty) ...[
+                                        const SizedBox(height: 8),
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(8),
+                                          child: AspectRatio(
+                                            aspectRatio: 16 / 9,
+                                            child: CachedNetworkImage(
+                                              imageUrl: item.imageUrl!,
+                                              fit: BoxFit.cover,
+                                              placeholder: (_, __) => Container(
+                                                color: const Color(0xFFE2E8F0),
+                                                child: const Center(
+                                                  child: SizedBox(
+                                                    width: 18,
+                                                    height: 18,
+                                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                                  ),
+                                                ),
+                                              ),
+                                              errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                       const SizedBox(height: 6),
                                       Text(
                                         item.description,

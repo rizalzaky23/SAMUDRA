@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../../shared/widgets/image_upload_field.dart';
 import '../providers/admin_provider.dart';
 
 class AdminMitigasiScreen extends ConsumerStatefulWidget {
@@ -203,6 +205,28 @@ class _AdminMitigasiScreenState extends ConsumerState<AdminMitigasiScreen> {
               ),
             ],
           ),
+          if (item.imageUrl != null && item.imageUrl!.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: CachedNetworkImage(
+                  imageUrl: item.imageUrl!,
+                  fit: BoxFit.cover,
+                  placeholder: (_, __) => Container(
+                    color: const Color(0xFFF1F5F9),
+                    child: const Center(
+                        child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2))),
+                  ),
+                  errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
           Text(
             item.description,
@@ -221,6 +245,7 @@ class _AdminMitigasiScreenState extends ConsumerState<AdminMitigasiScreen> {
     final stepCtrl = TextEditingController(text: existing != null ? '${existing.stepNumber}' : '');
     final titleCtrl = TextEditingController(text: existing?.title ?? '');
     final descCtrl = TextEditingController(text: existing?.description ?? '');
+    String? imageUrl = existing?.imageUrl;
 
     showDialog(
       context: context,
@@ -256,6 +281,16 @@ class _AdminMitigasiScreenState extends ConsumerState<AdminMitigasiScreen> {
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     ),
+                  ),
+                  const SizedBox(height: 14),
+                  ImageUploadField(
+                    initialUrl: imageUrl,
+                    folder: 'mitigasi',
+                    label: 'Foto / Ilustrasi Langkah',
+                    hint: 'Opsional',
+                    onChanged: (url) {
+                      imageUrl = url;
+                    },
                   ),
                   const SizedBox(height: 14),
                   TextField(
@@ -301,6 +336,7 @@ class _AdminMitigasiScreenState extends ConsumerState<AdminMitigasiScreen> {
                           stepNumber: step,
                           title: title,
                           description: desc,
+                          imageUrl: imageUrl,
                         );
                   } else {
                     success = await ref.read(adminProvider.notifier).updateMitigasi(
@@ -309,6 +345,7 @@ class _AdminMitigasiScreenState extends ConsumerState<AdminMitigasiScreen> {
                         'stepNumber': step,
                         'title': title,
                         'description': desc,
+                        'imageUrl': imageUrl,
                       },
                     );
                   }

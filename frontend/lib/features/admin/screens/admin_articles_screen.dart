@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../../shared/widgets/image_upload_field.dart';
 import '../providers/admin_provider.dart';
 
 class AdminArticlesScreen extends ConsumerStatefulWidget {
@@ -184,6 +186,29 @@ class _AdminArticlesScreenState extends ConsumerState<AdminArticlesScreen> {
               ),
             ],
           ),
+          if (article.coverImageUrl != null &&
+              article.coverImageUrl!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: CachedNetworkImage(
+                  imageUrl: article.coverImageUrl!,
+                  fit: BoxFit.cover,
+                  placeholder: (_, __) => Container(
+                    color: const Color(0xFFF1F5F9),
+                    child: const Center(
+                        child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2))),
+                  ),
+                  errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
           Text(
             article.title,
@@ -253,7 +278,8 @@ class _AdminArticlesScreenState extends ConsumerState<AdminArticlesScreen> {
     final titleCtrl = TextEditingController(text: article?.title ?? '');
     final contentCtrl = TextEditingController(text: article?.content ?? '');
     String selectedCategory = article?.category ?? 'edukasi_tsunami';
-    String selectedStatus = article?.status ?? 'draft';
+    String selectedStatus = article?.status ?? 'published';
+    String? coverImageUrl = article?.coverImageUrl;
 
     showModalBottomSheet(
       context: context,
@@ -296,6 +322,16 @@ class _AdminArticlesScreenState extends ConsumerState<AdminArticlesScreen> {
                       TextField(
                         controller: titleCtrl,
                         decoration: _inputDecoration('Masukkan judul artikel'),
+                      ),
+                      const SizedBox(height: 14),
+                      ImageUploadField(
+                        initialUrl: coverImageUrl,
+                        folder: 'articles',
+                        label: 'Gambar Sampul Artikel',
+                        hint: 'Opsional',
+                        onChanged: (url) {
+                          coverImageUrl = url;
+                        },
                       ),
                       const SizedBox(height: 14),
                       _fieldLabel('Kategori'),
@@ -354,6 +390,7 @@ class _AdminArticlesScreenState extends ConsumerState<AdminArticlesScreen> {
                                     content: contentCtrl.text,
                                     category: selectedCategory,
                                     status: selectedStatus,
+                                    coverImageUrl: coverImageUrl,
                                   );
                             } else {
                               await ref.read(adminProvider.notifier).updateArticle(
@@ -363,6 +400,7 @@ class _AdminArticlesScreenState extends ConsumerState<AdminArticlesScreen> {
                                       'content': contentCtrl.text,
                                       'category': selectedCategory,
                                       'status': selectedStatus,
+                                      'coverImageUrl': coverImageUrl,
                                     },
                                   );
                             }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../../shared/widgets/image_upload_field.dart';
 import '../providers/admin_provider.dart';
 
 class AdminPeralatanScreen extends ConsumerStatefulWidget {
@@ -216,6 +218,28 @@ class _AdminPeralatanScreenState extends ConsumerState<AdminPeralatanScreen> {
               ),
             ],
           ),
+          if (item.imageUrl != null && item.imageUrl!.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: CachedNetworkImage(
+                  imageUrl: item.imageUrl!,
+                  fit: BoxFit.cover,
+                  placeholder: (_, __) => Container(
+                    color: const Color(0xFFF1F5F9),
+                    child: const Center(
+                        child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2))),
+                  ),
+                  errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
           Text(
             item.description,
@@ -235,6 +259,7 @@ class _AdminPeralatanScreenState extends ConsumerState<AdminPeralatanScreen> {
     final catCtrl = TextEditingController(text: existing?.category ?? 'Dokumen & Medis');
     final descCtrl = TextEditingController(text: existing?.description ?? '');
     final priorityCtrl = TextEditingController(text: existing != null ? '${existing.priority}' : '1');
+    String? imageUrl = existing?.imageUrl;
 
     showDialog(
       context: context,
@@ -282,6 +307,16 @@ class _AdminPeralatanScreenState extends ConsumerState<AdminPeralatanScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
+                  ImageUploadField(
+                    initialUrl: imageUrl,
+                    folder: 'peralatan',
+                    label: 'Foto Peralatan Siaga',
+                    hint: 'Opsional',
+                    onChanged: (url) {
+                      imageUrl = url;
+                    },
+                  ),
+                  const SizedBox(height: 14),
                   TextField(
                     controller: descCtrl,
                     maxLines: 3,
@@ -327,6 +362,7 @@ class _AdminPeralatanScreenState extends ConsumerState<AdminPeralatanScreen> {
                           category: cat,
                           description: desc,
                           priority: priority,
+                          imageUrl: imageUrl,
                         );
                   } else {
                     success = await ref.read(adminProvider.notifier).updatePeralatan(
@@ -336,6 +372,7 @@ class _AdminPeralatanScreenState extends ConsumerState<AdminPeralatanScreen> {
                         'category': cat,
                         'description': desc,
                         'priority': priority,
+                        'imageUrl': imageUrl,
                       },
                     );
                   }

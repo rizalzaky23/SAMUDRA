@@ -1,48 +1,14 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http_parser/http_parser.dart';
 import '../../../shared/models/user_model.dart';
 import '../../../core/constants/app_constants.dart';
 
-// ─── Models ───────────────────────────────────────────────────────────────────
-
-class ArticleModel {
-  final String id;
-  final String title;
-  final String content;
-  final String category;
-  final String status;
-  final String? coverImageUrl;
-  final String authorId;
-  final DateTime? publishedAt;
-  final DateTime createdAt;
-
-  ArticleModel({
-    required this.id,
-    required this.title,
-    required this.content,
-    required this.category,
-    required this.status,
-    this.coverImageUrl,
-    required this.authorId,
-    this.publishedAt,
-    required this.createdAt,
-  });
-
-  factory ArticleModel.fromJson(Map<String, dynamic> json) {
-    return ArticleModel(
-      id: json['id'] ?? '',
-      title: json['title'] ?? '',
-      content: json['content'] ?? '',
-      category: json['category'] ?? 'edukasi_tsunami',
-      status: json['status'] ?? 'draft',
-      coverImageUrl: json['coverImageUrl'],
-      authorId: json['authorId'] ?? '',
-      publishedAt: json['publishedAt'] != null ? DateTime.tryParse(json['publishedAt']) : null,
-      createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
-    );
-  }
-}
+export '../../blog/models/article_model.dart';
+import '../../blog/models/article_model.dart';
+import '../../blog/providers/articles_provider.dart';
 
 class MitigasiModel {
   final String id;
@@ -50,6 +16,7 @@ class MitigasiModel {
   final String title;
   final String description;
   final String? iconName;
+  final String? imageUrl;
 
   MitigasiModel({
     required this.id,
@@ -57,6 +24,7 @@ class MitigasiModel {
     required this.title,
     required this.description,
     this.iconName,
+    this.imageUrl,
   });
 
   factory MitigasiModel.fromJson(Map<String, dynamic> json) {
@@ -66,6 +34,7 @@ class MitigasiModel {
       title: json['title'] ?? '',
       description: json['description'] ?? '',
       iconName: json['iconName'],
+      imageUrl: json['imageUrl'] ?? json['image_url'],
     );
   }
 }
@@ -77,6 +46,7 @@ class PeralatanModel {
   final String description;
   final int priority;
   final String? iconName;
+  final String? imageUrl;
 
   PeralatanModel({
     required this.id,
@@ -85,6 +55,7 @@ class PeralatanModel {
     required this.description,
     required this.priority,
     this.iconName,
+    this.imageUrl,
   });
 
   factory PeralatanModel.fromJson(Map<String, dynamic> json) {
@@ -95,6 +66,7 @@ class PeralatanModel {
       description: json['description'] ?? '',
       priority: json['priority'] ?? 0,
       iconName: json['iconName'],
+      imageUrl: json['imageUrl'] ?? json['image_url'],
     );
   }
 }
@@ -142,16 +114,142 @@ class AdminState {
 
 class AdminNotifier extends StateNotifier<AdminState> {
   final FlutterSecureStorage _storage;
+  final Ref? _ref;
 
-  AdminNotifier(this._storage) : super(const AdminState());
+  AdminNotifier(this._storage, [this._ref]) : super(const AdminState());
 
   Future<Dio> _authenticatedDio() async {
-    final token = await _storage.read(key: AppConstants.accessTokenKey);
-    final dio = Dio();
-    if (token != null) {
-      dio.options.headers['Authorization'] = 'Bearer $token';
-    }
+    final dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(seconds: 30),
+      ),
+    );
+
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          final token = await _storage.read(key: AppConstants.accessTokenKey);
+          if (token != null && token.isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+          return handler.next(options);
+        },
+        onError: (error, handler) async {
+          if (error.response?.statusCode == 401) {
+            final refreshed = await _tryRefreshToken();
+            if (refreshed) {
+              final token = await _storage.read(key: AppConstants.accessTokenKey);
+              error.requestOptions.headers['Authorization'] = 'Bearer $token';
+              try {
+                final retryResponse = await dio.fetch(error.requestOptions);
+                return handler.resolve(retryResponse);
+              } catch (e) {
+                return handler.next(error);
+              }
+            }
+          }
+          return handler.next(error);
+        },
+      ),
+    );
+
     return dio;
+  }
+
+  Future<bool> _tryRefreshToken() async {
+    try {
+      final refreshToken = await _storage.read(key: AppConstants.refreshTokenKey);
+      if (refreshToken == null || refreshToken.isEmpty) return false;
+
+      final response = await Dio().post(
+        '${AppConstants.apiBaseUrl}/auth/refresh',
+        data: {'refreshToken': refreshToken},
+      );
+
+      final newToken = response.data['accessToken'];
+      final newRefresh = response.data['refreshToken'];
+      if (newToken != null) {
+        await _storage.write(key: AppConstants.accessTokenKey, value: newToken);
+      }
+      if (newRefresh != null) {
+        await _storage.write(key: AppConstants.refreshTokenKey, value: newRefresh);
+      }
+      return true;
+    } catch (e) {
+      debugPrint('[AdminNotifier] Refresh token failed: $e');
+      return false;
+    }
+  }
+
+  // ─── Storage Upload ────────────────────────────────────────────────────────
+  Future<String?> uploadFile({
+    required List<int> bytes,
+    required String filename,
+    required String folder,
+  }) async {
+    try {
+      final dio = await _authenticatedDio();
+
+      // Tentukan mimetype yang sesuai dari ekstensi file
+      String mimeType = 'image/jpeg';
+      String cleanFilename = filename.isNotEmpty ? filename : 'upload.jpg';
+      final lower = cleanFilename.toLowerCase();
+      if (lower.endsWith('.png')) {
+        mimeType = 'image/png';
+      } else if (lower.endsWith('.webp')) {
+        mimeType = 'image/webp';
+      } else if (lower.endsWith('.gif')) {
+        mimeType = 'image/gif';
+      } else if (!lower.contains('.')) {
+        cleanFilename = '$cleanFilename.jpg';
+      }
+
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(
+          bytes,
+          filename: cleanFilename,
+          contentType: MediaType.parse(mimeType),
+        ),
+      });
+
+      final response = await dio.post(
+        '${AppConstants.apiBaseUrl}/storage/upload',
+        queryParameters: {'folder': folder},
+        data: formData,
+        options: Options(
+          sendTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 60),
+        ),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final url = response.data['url'] as String?;
+        return url;
+      }
+      state = state.copyWith(error: 'Upload gagal (Status ${response.statusCode})');
+      return null;
+    } catch (e) {
+      String msg = 'Gagal mengupload gambar';
+      if (e is DioException) {
+        if (e.response?.data != null && e.response?.data is Map) {
+          msg = e.response?.data['message']?.toString() ?? msg;
+        } else if (e.response?.statusCode == 401) {
+          msg = 'Sesi telah berakhir. Silakan login ulang.';
+        } else if (e.response?.statusCode == 403) {
+          msg = 'Akses ditolak: Hanya Admin/Super Admin yang dapat mengunggah gambar.';
+        } else if (e.response?.statusCode != null) {
+          msg = 'Server error (${e.response?.statusCode})';
+        } else {
+          msg = e.message ?? msg;
+        }
+      } else {
+        msg = e.toString();
+      }
+      debugPrint('[AdminNotifier] Upload error: $e');
+      state = state.copyWith(error: msg);
+      return null;
+    }
   }
 
   // ─── Articles ──────────────────────────────────────────────────────────────
@@ -184,13 +282,23 @@ class AdminNotifier extends StateNotifier<AdminState> {
           'content': content,
           'category': category,
           'status': status,
-          if (coverImageUrl != null) 'coverImageUrl': coverImageUrl,
+          if (coverImageUrl != null && coverImageUrl.trim().isNotEmpty)
+            'coverImageUrl': coverImageUrl.trim(),
         },
       );
       await loadArticles();
+      _ref?.invalidate(articlesProvider);
       return true;
     } catch (e) {
-      state = state.copyWith(error: 'Gagal membuat artikel: $e');
+      String msg = 'Gagal membuat artikel: $e';
+      if (e is DioException && e.response?.data != null) {
+        final d = e.response!.data;
+        if (d is Map && d['message'] != null) {
+          final m = d['message'];
+          msg = 'Gagal membuat artikel: ${m is List ? m.join(', ') : m}';
+        }
+      }
+      state = state.copyWith(error: msg);
       return false;
     }
   }
@@ -200,9 +308,18 @@ class AdminNotifier extends StateNotifier<AdminState> {
       final dio = await _authenticatedDio();
       await dio.patch('${AppConstants.apiBaseUrl}/articles/$id', data: data);
       await loadArticles();
+      _ref?.invalidate(articlesProvider);
       return true;
     } catch (e) {
-      state = state.copyWith(error: 'Gagal mengupdate artikel: $e');
+      String msg = 'Gagal mengupdate artikel: $e';
+      if (e is DioException && e.response?.data != null) {
+        final d = e.response!.data;
+        if (d is Map && d['message'] != null) {
+          final m = d['message'];
+          msg = 'Gagal mengupdate artikel: ${m is List ? m.join(', ') : m}';
+        }
+      }
+      state = state.copyWith(error: msg);
       return false;
     }
   }
@@ -212,9 +329,18 @@ class AdminNotifier extends StateNotifier<AdminState> {
       final dio = await _authenticatedDio();
       await dio.delete('${AppConstants.apiBaseUrl}/articles/$id');
       await loadArticles();
+      _ref?.invalidate(articlesProvider);
       return true;
     } catch (e) {
-      state = state.copyWith(error: 'Gagal menghapus artikel: $e');
+      String msg = 'Gagal menghapus artikel: $e';
+      if (e is DioException && e.response?.data != null) {
+        final d = e.response!.data;
+        if (d is Map && d['message'] != null) {
+          final m = d['message'];
+          msg = 'Gagal menghapus artikel: ${m is List ? m.join(', ') : m}';
+        }
+      }
+      state = state.copyWith(error: msg);
       return false;
     }
   }
@@ -238,6 +364,7 @@ class AdminNotifier extends StateNotifier<AdminState> {
     required String title,
     required String description,
     String? iconName,
+    String? imageUrl,
   }) async {
     try {
       final dio = await _authenticatedDio();
@@ -247,13 +374,22 @@ class AdminNotifier extends StateNotifier<AdminState> {
           'stepNumber': stepNumber,
           'title': title,
           'description': description,
-          if (iconName != null) 'iconName': iconName,
+          if (iconName != null && iconName.trim().isNotEmpty) 'iconName': iconName.trim(),
+          if (imageUrl != null && imageUrl.trim().isNotEmpty) 'imageUrl': imageUrl.trim(),
         },
       );
       await loadMitigasi();
       return true;
     } catch (e) {
-      state = state.copyWith(error: 'Gagal membuat langkah mitigasi: $e');
+      String msg = 'Gagal membuat langkah mitigasi: $e';
+      if (e is DioException && e.response?.data != null) {
+        final d = e.response!.data;
+        if (d is Map && d['message'] != null) {
+          final m = d['message'];
+          msg = 'Gagal membuat langkah mitigasi: ${m is List ? m.join(', ') : m}';
+        }
+      }
+      state = state.copyWith(error: msg);
       return false;
     }
   }
@@ -261,11 +397,21 @@ class AdminNotifier extends StateNotifier<AdminState> {
   Future<bool> updateMitigasi(String id, Map<String, dynamic> data) async {
     try {
       final dio = await _authenticatedDio();
-      await dio.patch('${AppConstants.apiBaseUrl}/mitigasi/$id', data: data);
+      final clean = Map<String, dynamic>.from(data);
+      clean.removeWhere((k, v) => v == null || (v is String && v.trim().isEmpty));
+      await dio.patch('${AppConstants.apiBaseUrl}/mitigasi/$id', data: clean);
       await loadMitigasi();
       return true;
     } catch (e) {
-      state = state.copyWith(error: 'Gagal mengupdate mitigasi: $e');
+      String msg = 'Gagal mengupdate mitigasi: $e';
+      if (e is DioException && e.response?.data != null) {
+        final d = e.response!.data;
+        if (d is Map && d['message'] != null) {
+          final m = d['message'];
+          msg = 'Gagal mengupdate mitigasi: ${m is List ? m.join(', ') : m}';
+        }
+      }
+      state = state.copyWith(error: msg);
       return false;
     }
   }
@@ -277,7 +423,15 @@ class AdminNotifier extends StateNotifier<AdminState> {
       await loadMitigasi();
       return true;
     } catch (e) {
-      state = state.copyWith(error: 'Gagal menghapus mitigasi: $e');
+      String msg = 'Gagal menghapus mitigasi: $e';
+      if (e is DioException && e.response?.data != null) {
+        final d = e.response!.data;
+        if (d is Map && d['message'] != null) {
+          final m = d['message'];
+          msg = 'Gagal menghapus mitigasi: ${m is List ? m.join(', ') : m}';
+        }
+      }
+      state = state.copyWith(error: msg);
       return false;
     }
   }
@@ -302,6 +456,7 @@ class AdminNotifier extends StateNotifier<AdminState> {
     required String description,
     int priority = 0,
     String? iconName,
+    String? imageUrl,
   }) async {
     try {
       final dio = await _authenticatedDio();
@@ -309,16 +464,25 @@ class AdminNotifier extends StateNotifier<AdminState> {
         '${AppConstants.apiBaseUrl}/peralatan',
         data: {
           'name': name,
-          'category': category,
+          'category': category.trim().isEmpty ? 'Umum' : category.trim(),
           'description': description,
           'priority': priority,
-          if (iconName != null) 'iconName': iconName,
+          if (iconName != null && iconName.trim().isNotEmpty) 'iconName': iconName.trim(),
+          if (imageUrl != null && imageUrl.trim().isNotEmpty) 'imageUrl': imageUrl.trim(),
         },
       );
       await loadPeralatan();
       return true;
     } catch (e) {
-      state = state.copyWith(error: 'Gagal membuat peralatan: $e');
+      String msg = 'Gagal membuat peralatan: $e';
+      if (e is DioException && e.response?.data != null) {
+        final d = e.response!.data;
+        if (d is Map && d['message'] != null) {
+          final m = d['message'];
+          msg = 'Gagal membuat peralatan: ${m is List ? m.join(', ') : m}';
+        }
+      }
+      state = state.copyWith(error: msg);
       return false;
     }
   }
@@ -326,11 +490,21 @@ class AdminNotifier extends StateNotifier<AdminState> {
   Future<bool> updatePeralatan(String id, Map<String, dynamic> data) async {
     try {
       final dio = await _authenticatedDio();
-      await dio.patch('${AppConstants.apiBaseUrl}/peralatan/$id', data: data);
+      final clean = Map<String, dynamic>.from(data);
+      clean.removeWhere((k, v) => v == null || (v is String && v.trim().isEmpty));
+      await dio.patch('${AppConstants.apiBaseUrl}/peralatan/$id', data: clean);
       await loadPeralatan();
       return true;
     } catch (e) {
-      state = state.copyWith(error: 'Gagal mengupdate peralatan: $e');
+      String msg = 'Gagal mengupdate peralatan: $e';
+      if (e is DioException && e.response?.data != null) {
+        final d = e.response!.data;
+        if (d is Map && d['message'] != null) {
+          final m = d['message'];
+          msg = 'Gagal mengupdate peralatan: ${m is List ? m.join(', ') : m}';
+        }
+      }
+      state = state.copyWith(error: msg);
       return false;
     }
   }
@@ -342,10 +516,19 @@ class AdminNotifier extends StateNotifier<AdminState> {
       await loadPeralatan();
       return true;
     } catch (e) {
-      state = state.copyWith(error: 'Gagal menghapus peralatan: $e');
+      String msg = 'Gagal menghapus peralatan: $e';
+      if (e is DioException && e.response?.data != null) {
+        final d = e.response!.data;
+        if (d is Map && d['message'] != null) {
+          final m = d['message'];
+          msg = 'Gagal menghapus peralatan: ${m is List ? m.join(', ') : m}';
+        }
+      }
+      state = state.copyWith(error: msg);
       return false;
     }
   }
+
 
   // ─── Users (super_admin) ───────────────────────────────────────────────────
 
@@ -381,5 +564,5 @@ class AdminNotifier extends StateNotifier<AdminState> {
 // ─── Providers ────────────────────────────────────────────────────────────────
 
 final adminProvider = StateNotifierProvider<AdminNotifier, AdminState>((ref) {
-  return AdminNotifier(const FlutterSecureStorage());
+  return AdminNotifier(const FlutterSecureStorage(), ref);
 });

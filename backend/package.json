@@ -21,6 +21,8 @@
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1154.0",
+    "@aws-sdk/s3-request-presigner": "^3.1154.0",
     "@nestjs/axios": "^12.0.0",
     "@nestjs/common": "^12.0.1",
     "@nestjs/config": "^12.0.0",
@@ -31,12 +33,14 @@
     "@nestjs/schedule": "^12.0.1",
     "@nestjs/swagger": "^12.0.1",
     "@nestjs/typeorm": "^12.0.1",
+    "@types/multer": "^2.3.0",
     "axios": "^1.20.0",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "date-fns": "^4.4.0",
     "google-auth-library": "^11.1.0",
+    "multer": "^2.4.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-jwt": "^4.0.1",
@@ -46,6 +50,7 @@
     "rxjs": "^7.8.1",
     "swagger-ui-express": "^5.0.1",
     "typeorm": "^1.1.1",
+    "uuid": "^14.0.3",
     "xml2js": "^0.6.2"
   },
   "devDependencies": {
@@ -59,6 +64,7 @@
     "@types/passport-google-oauth20": "^2.0.17",
     "@types/passport-jwt": "^4.0.1",
     "@types/supertest": "^7.0.0",
+    "@types/uuid": "^10.0.0",
     "@types/xml2js": "^0.4.14",
     "@vitest/coverage-v8": "^4.1.2",
     "oxlint": "^1.58.0",

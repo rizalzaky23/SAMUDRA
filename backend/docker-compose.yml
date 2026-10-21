@@ -45,6 +45,12 @@ services:
       GOOGLE_CLIENT_ID: 772157858952-jtuupdldo13hsjghk1rc5al957qr1ako.apps.googleusercontent.com
       GOOGLE_CLIENT_SECRET: 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
       GOOGLE_CALLBACK_URL: https://samudra.rizalzaky.cloud/api/auth/google/callback
+      # Cloudflare R2
+      CF_R2_ACCOUNT_ID: '2a4386776eeae5856303b62fddcee5a4'
+      CF_R2_ACCESS_KEY_ID: '427bbe879130d5a3dd3b6925ca6b020d'
+      CF_R2_SECRET_ACCESS_KEY: 'e8052b2c6bb43bfbb3495918d55b11f3ea8a80824ca2b489cca100f6ceea2b7a'
+      CF_R2_BUCKET_NAME: samudra
+      CF_R2_PUBLIC_URL: 'https://cdn.samudra.buzz'
     depends_on:
       samudra-db:
         condition: service_healthy

@@ -4,6 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/router/app_router.dart';
 import '../../earthquake/providers/earthquake_provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../blog/models/article_model.dart';
+import '../../blog/providers/articles_provider.dart';
+import '../../blog/widgets/article_detail_sheet.dart';
 
 // Provider to toggle between Status Normal (Blue) & Status Bahaya (Red)
 final homeDangerModeProvider = StateProvider<bool>((ref) => false);
@@ -115,7 +119,7 @@ class HomeScreen extends ConsumerWidget {
                   padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
                   child: isDanger
                       ? _buildDangerContent(context)
-                      : _buildNormalContent(context),
+                      : _buildNormalContent(context, ref),
                 ),
               ),
             ),
@@ -597,7 +601,8 @@ class HomeScreen extends ConsumerWidget {
   }
 
   // ── Layar Kanan: Body Content (Status Normal) ──
-  Widget _buildNormalContent(BuildContext context) {
+  Widget _buildNormalContent(BuildContext context, WidgetRef ref) {
+    final articlesAsync = ref.watch(articlesProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -854,37 +859,48 @@ class HomeScreen extends ConsumerWidget {
         const SizedBox(height: 20),
 
         // Section: Artikel edukasi (horizontal scroll hint)
-        Text(
-          'Artikel edukasi',
-          style: GoogleFonts.inter(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF64748B),
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Artikel edukasi',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF64748B),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 10),
 
-        SizedBox(
-          height: 94,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            clipBehavior: Clip.none,
-            children: [
-              _buildArticleCard(
-                title: 'Panduan Evakuasi Mandiri Saat Gempa Bumi',
-                readTime: '3 mnt baca',
+        articlesAsync.when(
+          data: (articles) {
+            final items = articles.isNotEmpty ? articles : fallbackArticles;
+            return SizedBox(
+              height: 125,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                clipBehavior: Clip.none,
+                itemCount: items.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemBuilder: (ctx, i) => _buildArticleCard(context, items[i]),
               ),
-              const SizedBox(width: 10),
-              _buildArticleCard(
-                title: 'Tanda Alami Datangnya Gelombang Tsunami',
-                readTime: '5 mnt baca',
-              ),
-              const SizedBox(width: 10),
-              _buildArticleCard(
-                title: 'Penyusunan Tas Siaga Bencana Keluarga',
-                readTime: '4 mnt baca',
-              ),
-            ],
+            );
+          },
+          loading: () => const SizedBox(
+            height: 125,
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          ),
+          error: (_, __) => SizedBox(
+            height: 125,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              clipBehavior: Clip.none,
+              itemCount: fallbackArticles.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (ctx, i) => _buildArticleCard(context, fallbackArticles[i]),
+            ),
           ),
         ),
       ],
@@ -1106,53 +1122,106 @@ class HomeScreen extends ConsumerWidget {
   }
 
   // ── Article Card ──
-  Widget _buildArticleCard({required String title, required String readTime}) {
-    return Container(
-      width: 195,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.inter(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF0F172A),
+  Widget _buildArticleCard(BuildContext context, ArticleModel article) {
+    final hasImage = article.coverImageUrl != null && article.coverImageUrl!.isNotEmpty;
+
+    return GestureDetector(
+      onTap: () => ArticleDetailSheet.show(context, article),
+      child: Container(
+        width: 210,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 3),
             ),
-          ),
-          Row(
-            children: [
-              const Icon(
-                Icons.access_time_rounded,
-                size: 13,
-                color: Color(0xFF94A3B8),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                readTime,
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  color: const Color(0xFF94A3B8),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (hasImage) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: CachedNetworkImage(
+                  imageUrl: article.coverImageUrl!,
+                  height: 52,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  placeholder: (_, __) => Container(
+                    height: 52,
+                    color: const Color(0xFFF1F5F9),
+                  ),
+                  errorWidget: (_, __, ___) => const SizedBox.shrink(),
                 ),
               ),
+              const SizedBox(height: 6),
+            ] else ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  article.categoryLabel,
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF2563EB),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
             ],
-          ),
-        ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    article.title,
+                    maxLines: hasImage ? 2 : 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF0F172A),
+                      height: 1.25,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.access_time_rounded,
+                        size: 12,
+                        color: Color(0xFF94A3B8),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        article.readTime,
+                        style: GoogleFonts.inter(
+                          fontSize: 10.5,
+                          color: const Color(0xFF94A3B8),
+                        ),
+                      ),
+                      const Spacer(),
+                      const Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 10,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

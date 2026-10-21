@@ -32,6 +32,10 @@ export class MitigasiStep {
   @Column({ name: 'icon_name', nullable: true, length: 100 })
   iconName: string;
 
+  @ApiProperty({ description: 'URL gambar/ilustrasi dari Cloudflare R2', required: false })
+  @Column({ name: 'image_url', nullable: true, type: 'text' })
+  imageUrl: string;
+
   @ApiProperty()
   @Column({ name: 'author_id' })
   authorId: string;
