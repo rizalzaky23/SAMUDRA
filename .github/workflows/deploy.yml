@@ -7,41 +7,107 @@ on:
     paths:
       - 'backend/**'
       - '.github/workflows/deploy.yml'
+      - 'deploy.sh'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-samudra-backend
+  cancel-in-progress: true
 
 jobs:
   deploy:
-    name: Deploy to samudra.rizalzaky.cloud
+    name: Deploy Backend via Cloudflare Tunnel
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
-      - name: 📦 Checkout code
+      - name: 📦 Checkout repository
         uses: actions/checkout@v4
 
-      - name: 🚀 Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          password: ${{ secrets.SERVER_PASSWORD }}
-          port: ${{ secrets.SERVER_PORT }}
-          script_stop: true
-          script: |
+      - name: 📥 Install cloudflared
+        run: |
+          echo "⬇️ Downloading cloudflared..."
+          curl -fsSL -o /tmp/cloudflared \
+            https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+          sudo install -m 755 /tmp/cloudflared /usr/local/bin/cloudflared
+          cloudflared --version
+
+      - name: 🔑 Configure SSH & Tunnel
+        env:
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_PASS: ${{ secrets.SSH_PASSWORD || secrets.SERVER_PASSWORD }}
+          SSH_HOST: ${{ secrets.SSH_HOST || 'ssh.rizalzaky.cloud' }}
+          SSH_USER: ${{ secrets.SSH_USER || 'rizal' }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          cat > ~/.ssh/config <<EOF
+          Host deploy-target
+            HostName ${SSH_HOST}
+            User ${SSH_USER}
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            ConnectTimeout 30
+            ProxyCommand /usr/local/bin/cloudflared access ssh --hostname %h
+          EOF
+
+          if [ -n "$SSH_KEY" ]; then
+            echo "🔑 Menggunakan autentikasi SSH Private Key..."
+            printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+            chmod 600 ~/.ssh/deploy_key
+            echo "  IdentityFile ~/.ssh/deploy_key" >> ~/.ssh/config
+            echo "  IdentitiesOnly yes" >> ~/.ssh/config
+            echo "AUTH_MODE=key" >> "$GITHUB_ENV"
+          elif [ -n "$SSH_PASS" ]; then
+            echo "🔒 Menggunakan autentikasi Password (sshpass)..."
+            sudo apt-get update -y && sudo apt-get install -y sshpass
+            echo "AUTH_MODE=pass" >> "$GITHUB_ENV"
+            echo "SSHPASS=$SSH_PASS" >> "$GITHUB_ENV"
+          else
+            echo "❌ Error: Tidak ditemukan secrets SSH_PRIVATE_KEY atau SSH_PASSWORD di GitHub Secrets!"
+            echo "Tambahkan salah satu di Repository Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+          chmod 600 ~/.ssh/config
+
+      - name: 🔎 Test Connection
+        run: |
+          if [ "$AUTH_MODE" = "pass" ]; then
+            sshpass -e ssh deploy-target "echo '✅ Terhubung ke' \$(hostname) 'sebagai' \$(whoami)"
+          else
+            ssh deploy-target "echo '✅ Terhubung ke' \$(hostname) 'sebagai' \$(whoami)"
+          fi
+
+      - name: 🔄 Sync Code & Deploy Backend
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/home/rizal/samudra' }}
+        run: |
+          RUN_SSH="ssh deploy-target"
+          if [ "$AUTH_MODE" = "pass" ]; then
+            RUN_SSH="sshpass -e ssh deploy-target"
+          fi
+
+          echo "🔄 Pulling latest code on server..."
+          $RUN_SSH "
             set -e
-            echo "📁 Masuk ke direktori deploy..."
-            cd ${{ secrets.DEPLOY_PATH }}
+            cd $DEPLOY_PATH
+            echo '📁 Current directory:' \$(pwd)
+            git fetch --depth=1 origin main
+            git reset --hard origin/main
+            chmod +x deploy.sh
+          "
 
-            echo "🔄 Pull latest code dari GitHub..."
-            git pull origin main
+          echo "🐳 Menjalankan deploy.sh..."
+          $RUN_SSH "cd $DEPLOY_PATH && bash deploy.sh"
 
-            echo "🐳 Build & restart backend container..."
-            cd backend
-            docker compose build --no-cache samudra-backend
-            docker compose up -d --force-recreate samudra-backend
-
-            echo "🧹 Cleanup dangling images..."
-            docker image prune -f
-
-            echo "✅ Deploy selesai!"
-            docker compose ps
-
+      - name: ✅ Deploy Summary
+        if: success()
+        run: |
+          {
+            echo "## 🚀 Deploy SAMUDRA Backend Berhasil!"
+            echo "- **Commit**: \`${{ github.sha }}\`"
+            echo "- **Branch**: \`${{ github.ref_name }}\`"
+            echo "- **Waktu**: $(date -u '+%Y-%m-%d %H:%M UTC')"
+            echo "- **Target Server**: \`ssh.rizalzaky.cloud\`"
+          } >> "$GITHUB_STEP_SUMMARY"
