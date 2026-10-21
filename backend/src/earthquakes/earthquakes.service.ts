@@ -33,14 +33,23 @@ export class EarthquakesService {
       const dateStr = gempa.Tanggal;
       const timeStr = gempa.Jam;
       // Combine and parse '18 Sep 2026' and '10:00:00 WIB'
-      // BMKG format: Tanggal: 25 Sep 2024, Jam: 09:59:00 WIB
-      const dateTimeStr = `${dateStr} ${timeStr.replace(' WIB', '')}`;
       let occurredAt = new Date();
-      try {
-         // Using JS Date for simplicity, assuming WIB is +07:00
-         occurredAt = new Date(`${dateTimeStr} GMT+0700`);
-      } catch (e) {
-         this.logger.error('Date parsing error', e);
+      if (gempa.DateTime) {
+        const parsed = new Date(gempa.DateTime);
+        if (!isNaN(parsed.getTime())) occurredAt = parsed;
+      } else {
+        const monthMap: Record<string, string> = {
+          Jan: 'Jan', Feb: 'Feb', Mar: 'Mar', Apr: 'Apr', Mei: 'May', Jun: 'Jun',
+          Jul: 'Jul', Agu: 'Aug', Sep: 'Sep', Okt: 'Oct', Nov: 'Nov', Des: 'Dec',
+        };
+        let normalizedDate = dateStr;
+        for (const [idMonth, enMonth] of Object.entries(monthMap)) {
+          normalizedDate = normalizedDate.replace(idMonth, enMonth);
+        }
+        const parsed = new Date(`${normalizedDate} ${timeStr.replace(' WIB', '')} GMT+0700`);
+        if (!isNaN(parsed.getTime())) {
+          occurredAt = parsed;
+        }
       }
 
       // Koordinat: "5.59 LS - 110.15 BT" => BMKG provides coordinates as "-5.59,110.15" in <point> or <Lintang> etc.
