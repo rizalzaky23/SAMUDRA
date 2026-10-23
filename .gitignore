@@ -10,6 +10,7 @@ frontend/.flutter-plugins
 frontend/.flutter-plugins-dependencies
 frontend/build/
 frontend/android/.gradle
+frontend/android/.kotlin/
 frontend/android/local.properties
 frontend/android/app/google-services.json
 frontend/ios/Pods/

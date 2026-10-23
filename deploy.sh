@@ -10,7 +10,9 @@ echo "🐳 [2/4] Build image Docker backend..."
 docker compose build samudra-backend
 
 echo "🔄 [3/4] Recreate kontainer samudra-backend..."
-docker compose up -d --force-recreate samudra-backend
+docker compose stop samudra-backend 2>/dev/null || true
+docker compose rm -f samudra-backend 2>/dev/null || true
+docker compose up -d samudra-backend
 
 echo "🧹 [4/4] Bersihkan image dangling..."
 docker image prune -f

@@ -83,6 +83,7 @@ class NotificationService {
       debugPrint('FCM authorization status: ${settings.authorizationStatus}');
 
       // 6. Dapatkan FCM Token perangkat
+      // ignore: deprecated_member_use
       _fcmToken = await messaging.getToken();
       debugPrint('Device FCM Token: $_fcmToken');
 
@@ -93,6 +94,7 @@ class NotificationService {
       debugPrint('Subscribed to topics: earthquakes, tsunami_alerts, articles');
 
       // 8. Listener jika token diperbarui (token refresh)
+      // ignore: deprecated_member_use
       messaging.onTokenRefresh.listen((newToken) {
         _fcmToken = newToken;
         debugPrint('FCM Token refreshed: $newToken');
