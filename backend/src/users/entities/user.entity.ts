@@ -61,6 +61,14 @@ export class User {
   @Column({ name: 'fcm_token', nullable: true })
   fcmToken: string;
 
+  @ApiProperty({ required: false, nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  latitude?: number | null;
+
+  @ApiProperty({ required: false, nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  longitude?: number | null;
+
   @ApiProperty()
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

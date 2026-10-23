@@ -9,6 +9,7 @@ import { EarthquakesModule } from './earthquakes/earthquakes.module';
 import { ArticlesModule } from './articles/articles.module';
 import { EmergencyModule } from './emergency/emergency.module';
 import { StorageModule } from './storage/storage.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
@@ -45,6 +46,7 @@ import { AppController } from './app.controller';
     ArticlesModule,
     EmergencyModule,
     StorageModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}

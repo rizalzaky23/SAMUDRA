@@ -2,6 +2,7 @@
 backend/.env
 backend/dist/
 backend/node_modules/
+backend/firebase-service-account.json
 
 # Frontend
 frontend/.dart_tool/

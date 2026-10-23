@@ -16,21 +16,21 @@ export class NotificationLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ApiProperty()
-  @Column({ name: 'user_id' })
-  userId: string;
+  @ApiProperty({ required: false, nullable: true })
+  @Column({ name: 'user_id', nullable: true })
+  userId?: string | null;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user?: User | null;
 
-  @ApiProperty()
+  @ApiProperty({ required: false, nullable: true })
   @Column({ name: 'earthquake_id', nullable: true })
-  earthquakeId: string;
+  earthquakeId?: string | null;
 
-  @ManyToOne(() => Earthquake)
+  @ManyToOne(() => Earthquake, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'earthquake_id' })
-  earthquake: Earthquake;
+  earthquake?: Earthquake | null;
 
   @ApiProperty()
   @Column({ length: 50 })

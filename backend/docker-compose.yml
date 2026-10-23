@@ -51,6 +51,12 @@ services:
       CF_R2_SECRET_ACCESS_KEY: 'e8052b2c6bb43bfbb3495918d55b11f3ea8a80824ca2b489cca100f6ceea2b7a'
       CF_R2_BUCKET_NAME: samudra
       CF_R2_PUBLIC_URL: 'https://cdn.samudra.buzz'
+      # Firebase FCM
+      FIREBASE_PROJECT_ID: 'samudra-a9529'
+      FIREBASE_CLIENT_EMAIL: 'firebase-adminsdk-fbsvc@samudra-a9529.iam.gserviceaccount.com'
+      FIREBASE_CREDENTIALS_PATH: '/app/firebase-service-account.json'
+    volumes:
+      - ./firebase-service-account.json:/app/firebase-service-account.json:ro
     depends_on:
       samudra-db:
         condition: service_healthy

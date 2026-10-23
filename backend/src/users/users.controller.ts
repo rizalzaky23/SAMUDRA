@@ -9,7 +9,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
-import { IsEnum, IsString, IsOptional, MaxLength, IsIn } from 'class-validator';
+import { IsEnum, IsString, IsOptional, MaxLength, IsNumber } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -35,6 +35,16 @@ class UpdateProfileDto {
   @IsOptional()
   @IsString()
   fcmToken?: string;
+
+  @ApiProperty({ required: false, description: 'Latitude lokasi pengguna untuk deteksi gempa terdekat' })
+  @IsOptional()
+  @IsNumber()
+  latitude?: number;
+
+  @ApiProperty({ required: false, description: 'Longitude lokasi pengguna untuk deteksi gempa terdekat' })
+  @IsOptional()
+  @IsNumber()
+  longitude?: number;
 }
 
 class UpdateRoleDto {

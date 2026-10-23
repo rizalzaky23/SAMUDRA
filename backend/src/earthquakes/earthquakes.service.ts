@@ -7,6 +7,8 @@ import * as xml2js from 'xml2js';
 import { firstValueFrom } from 'rxjs';
 import { parse } from 'date-fns';
 
+import { NotificationsService } from '../notifications/notifications.service';
+
 @Injectable()
 export class EarthquakesService {
   private readonly logger = new Logger(EarthquakesService.name);
@@ -15,6 +17,7 @@ export class EarthquakesService {
     @InjectRepository(Earthquake)
     private earthquakesRepository: Repository<Earthquake>,
     private httpService: HttpService,
+    private notificationsService: NotificationsService,
   ) {}
 
   async fetchAndSaveLatestEarthquake(): Promise<void> {
@@ -77,8 +80,11 @@ export class EarthquakesService {
           potentialTsunami,
           occurredAt,
         });
-        await this.earthquakesRepository.save(newEarthquake);
+        const saved = await this.earthquakesRepository.save(newEarthquake);
         this.logger.log(`New earthquake saved: ${gempa.Wilayah} - Mag ${magnitude}`);
+
+        // Kirim push notification ke perangkat & topic
+        await this.notificationsService.sendEarthquakeAlert(saved);
       }
     } catch (error) {
       this.logger.error('Failed to fetch/save BMKG data', error);

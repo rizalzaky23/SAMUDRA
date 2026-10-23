@@ -5,6 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
+import 'core/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,6 +22,13 @@ void main() async {
     await dotenv.load(fileName: '.env');
   } catch (e) {
     debugPrint('Note: .env load skipped or not found: $e');
+  }
+
+  // Initialize Push Notification Service (FCM & Local Notifications)
+  try {
+    await NotificationService().init();
+  } catch (e) {
+    debugPrint('Notification service initialization note: $e');
   }
 
   // Lock to portrait

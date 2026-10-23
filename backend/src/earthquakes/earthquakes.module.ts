@@ -5,10 +5,13 @@ import { HttpModule } from '@nestjs/axios';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Earthquake } from './entities/earthquake.entity';
 
+import { NotificationsModule } from '../notifications/notifications.module';
+
 @Module({
   imports: [
     HttpModule,
     TypeOrmModule.forFeature([Earthquake]),
+    NotificationsModule,
   ],
   controllers: [EarthquakesController],
   providers: [EarthquakesService],

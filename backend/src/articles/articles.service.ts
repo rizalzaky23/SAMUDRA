@@ -8,12 +8,14 @@ import { Repository } from 'typeorm';
 import { Article, ArticleStatus } from './entities/article.entity';
 import { User, UserRole } from '../users/entities/user.entity';
 import { CreateArticleDto, UpdateArticleDto } from './dto/article.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ArticlesService {
   constructor(
     @InjectRepository(Article)
     private articlesRepo: Repository<Article>,
+    private notificationsService: NotificationsService,
   ) {}
 
   private generateSlug(title: string): string {
@@ -52,6 +54,7 @@ export class ArticlesService {
   }
 
   async create(dto: CreateArticleDto, author: User): Promise<Article> {
+    const isPublished = dto.status === ArticleStatus.PUBLISHED;
     const article = this.articlesRepo.create({
       title: dto.title,
       slug: this.generateSlug(dto.title),
@@ -60,13 +63,21 @@ export class ArticlesService {
       coverImageUrl: dto.coverImageUrl,
       status: dto.status ?? ArticleStatus.DRAFT,
       authorId: author.id,
-      publishedAt: dto.status === ArticleStatus.PUBLISHED ? new Date() : undefined,
+      publishedAt: isPublished ? new Date() : undefined,
     });
-    return this.articlesRepo.save(article);
+    const saved = await this.articlesRepo.save(article);
+
+    // Kirim notifikasi jika artikel langsung dipublikasikan oleh admin
+    if (isPublished) {
+      await this.notificationsService.sendNewArticleNotification(saved);
+    }
+
+    return saved;
   }
 
   async update(id: string, dto: UpdateArticleDto, currentUser: User): Promise<Article> {
     const article = await this.findById(id);
+    const wasPublished = article.status === ArticleStatus.PUBLISHED;
 
     // Hanya author atau super_admin yang bisa update
     if (article.authorId !== currentUser.id && currentUser.role !== UserRole.SUPER_ADMIN) {
@@ -87,7 +98,14 @@ export class ArticlesService {
       article.status = dto.status;
     }
 
-    return this.articlesRepo.save(article);
+    const updated = await this.articlesRepo.save(article);
+
+    // Kirim notifikasi jika artikel diubah dari DRAFT menjadi PUBLISHED
+    if (!wasPublished && updated.status === ArticleStatus.PUBLISHED) {
+      await this.notificationsService.sendNewArticleNotification(updated);
+    }
+
+    return updated;
   }
 
   async remove(id: string, currentUser: User): Promise<{ message: string }> {
