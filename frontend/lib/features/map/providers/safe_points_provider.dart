@@ -115,3 +115,4 @@ final safePointsProvider =
     StateNotifierProvider<SafePointsNotifier, SafePointsState>((ref) {
   return SafePointsNotifier();
 });
+

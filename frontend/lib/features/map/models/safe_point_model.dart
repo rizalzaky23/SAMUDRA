@@ -50,3 +50,4 @@ class SafePointModel {
         if (capacity != null) 'capacity': capacity,
       };
 }
+

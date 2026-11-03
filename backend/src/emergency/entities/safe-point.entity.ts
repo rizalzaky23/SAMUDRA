@@ -56,3 +56,4 @@ export class SafePoint {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }
+
