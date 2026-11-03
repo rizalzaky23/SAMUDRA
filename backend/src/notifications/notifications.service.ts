@@ -23,6 +23,8 @@ export class NotificationsService implements OnModuleInit {
     private readonly notificationLogRepo: Repository<NotificationLog>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(Earthquake)
+    private readonly earthquakeRepo: Repository<Earthquake>,
   ) {}
 
   onModuleInit() {
@@ -99,7 +101,16 @@ export class NotificationsService implements OnModuleInit {
 
     if (!this.isReady || !this.firebaseApp) {
       this.logger.warn(`[DRY-RUN] Would send notification: "${payload.title}" - "${payload.body}" to token: ${token}`);
-      return this.recordLog(userId, earthquakeId, 'DRY_RUN', `Dry-run: ${payload.title}`);
+      return this.recordLog(
+        userId,
+        earthquakeId,
+        'DRY_RUN',
+        `${payload.title}: ${payload.body}`,
+        payload.title,
+        payload.body,
+        payload.data?.type || 'direct',
+        payload.data,
+      );
     }
 
     try {
@@ -120,11 +131,29 @@ export class NotificationsService implements OnModuleInit {
         },
       });
 
-      await this.recordLog(userId, earthquakeId, 'SUCCESS', `MessageId: ${response}`);
+      await this.recordLog(
+        userId,
+        earthquakeId,
+        'SUCCESS',
+        `${payload.title}: ${payload.body}`,
+        payload.title,
+        payload.body,
+        payload.data?.type || 'direct',
+        payload.data,
+      );
       return { success: true, messageId: response };
     } catch (error: any) {
       this.logger.error(`Failed to send FCM to token: ${error.message}`);
-      await this.recordLog(userId, earthquakeId, 'FAILED', error.message);
+      await this.recordLog(
+        userId,
+        earthquakeId,
+        'FAILED',
+        `Error: ${error.message}`,
+        payload.title,
+        payload.body,
+        payload.data?.type || 'direct',
+        payload.data,
+      );
 
       if (
         userId &&
@@ -151,7 +180,16 @@ export class NotificationsService implements OnModuleInit {
 
     if (!this.isReady || !this.firebaseApp) {
       this.logger.warn(`[DRY-RUN] Would send to topic ${topic}: "${payload.title}" - "${payload.body}"`);
-      return this.recordLog(undefined, earthquakeId, 'DRY_RUN', `Dry-run topic ${topic}: ${payload.title}`);
+      return this.recordLog(
+        undefined,
+        earthquakeId,
+        'DRY_RUN',
+        `${payload.title}: ${payload.body}`,
+        payload.title,
+        payload.body,
+        payload.data?.type || topic,
+        payload.data,
+      );
     }
 
     try {
@@ -172,11 +210,29 @@ export class NotificationsService implements OnModuleInit {
         },
       });
 
-      await this.recordLog(undefined, earthquakeId, 'SUCCESS', `Topic: ${topic}, MessageId: ${response}`);
+      await this.recordLog(
+        undefined,
+        earthquakeId,
+        'SUCCESS',
+        `${payload.title}: ${payload.body}`,
+        payload.title,
+        payload.body,
+        payload.data?.type || topic,
+        payload.data,
+      );
       return { success: true, messageId: response };
     } catch (error: any) {
       this.logger.error(`Failed to send FCM to topic ${topic}: ${error.message}`);
-      await this.recordLog(undefined, earthquakeId, 'FAILED', error.message);
+      await this.recordLog(
+        undefined,
+        earthquakeId,
+        'FAILED',
+        `Error: ${error.message}`,
+        payload.title,
+        payload.body,
+        payload.data?.type || topic,
+        payload.data,
+      );
       return { success: false, error: error.message };
     }
   }
@@ -388,30 +444,85 @@ export class NotificationsService implements OnModuleInit {
     earthquakeId?: string | null,
     status = 'SENT',
     message?: string,
-  ) {
+    title?: string,
+    body?: string,
+    type?: string,
+    data?: Record<string, any>,
+  ): Promise<NotificationLog | null> {
     try {
-      const log = this.notificationLogRepo.create({
-        userId: userId ?? null,
-        earthquakeId: earthquakeId ?? null,
-        status,
-        message,
-        sentAt: new Date(),
-      });
-      await this.notificationLogRepo.save(log);
+      const formattedMessage = message || (title ? `${title}: ${body}` : 'Notification');
+      const log = new NotificationLog();
+      log.userId = userId ?? null;
+      log.earthquakeId = earthquakeId ?? null;
+      log.status = status;
+      log.message = formattedMessage;
+      log.title = title ?? undefined;
+      log.body = body ?? undefined;
+      log.type = type ?? undefined;
+      log.payloadData = data ? JSON.stringify(data) : undefined;
+      log.sentAt = new Date();
+      return await this.notificationLogRepo.save(log);
     } catch (e: any) {
       this.logger.warn(`Could not save notification log: ${e.message}`);
+      return null;
     }
   }
 
-  async getLogs(userId?: string, limit = 20) {
-    const where = userId ? { userId } : {};
-    return this.notificationLogRepo.find({
-      where,
-      order: { sentAt: 'DESC' },
-      take: limit,
-      relations: {
-        earthquake: true,
-      },
-    });
+  async getLogs(userId?: string, limit = 50) {
+    const qb = this.notificationLogRepo
+      .createQueryBuilder('log')
+      .leftJoinAndSelect('log.earthquake', 'earthquake')
+      .orderBy('log.sentAt', 'DESC')
+      .take(limit);
+
+    if (userId) {
+      qb.where('log.userId = :userId OR log.userId IS NULL', { userId });
+    }
+
+    let logs = await qb.getMany();
+
+    // Jika log masih kosong (misal instalasi baru), populate dari data gempa terkini
+    if (logs.length === 0) {
+      try {
+        const earthquakes = await this.earthquakeRepo.find({
+          order: { occurredAt: 'DESC' },
+          take: 5,
+        });
+
+        for (const eq of earthquakes) {
+          const isTsunami = Boolean(eq.potentialTsunami);
+          const title = isTsunami
+            ? `🚨 PERINGATAN DINI TSUNAMI (M ${eq.magnitude})`
+            : `⚠️ Gempa Bumi M ${eq.magnitude} - ${eq.region}`;
+          const body = isTsunami
+            ? `Wilayah ${eq.region}. BMKG menyatakan gempa berpotensi tsunami. Segera evakuasi ke tempat tinggi!`
+            : `Gempa kedalaman ${eq.depthKm} km terjadi di wilayah ${eq.region}. Tidak berpotensi tsunami.`;
+
+          const savedLog = await this.recordLog(
+            null,
+            eq.id,
+            'SUCCESS',
+            `${title}: ${body}`,
+            title,
+            body,
+            isTsunami ? 'tsunami_alert' : 'earthquake',
+            {
+              magnitude: eq.magnitude?.toString(),
+              depthKm: eq.depthKm?.toString(),
+              region: eq.region,
+              potentialTsunami: isTsunami ? 'true' : 'false',
+            },
+          );
+          if (savedLog) {
+            savedLog.earthquake = eq;
+            logs.push(savedLog);
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(`Could not seed initial notification logs: ${err.message}`);
+      }
+    }
+
+    return logs;
   }
 }

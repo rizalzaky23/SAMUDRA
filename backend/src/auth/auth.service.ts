@@ -71,8 +71,20 @@ export class AuthService {
         avatarUrl: googleUser.avatarUrl,
         passwordHash: null,
       });
-    } else if (!user.googleId) {
-      await this.usersService.update(user.id, { googleId: googleUser.googleId });
+    } else {
+      const updates: any = {};
+      if (!user.googleId && googleUser.googleId) {
+        updates.googleId = googleUser.googleId;
+      }
+      if (googleUser.avatarUrl && user.avatarUrl !== googleUser.avatarUrl) {
+        updates.avatarUrl = googleUser.avatarUrl;
+      }
+      if (googleUser.name && (!user.name || user.name === user.email.split('@')[0])) {
+        updates.name = googleUser.name;
+      }
+      if (Object.keys(updates).length > 0) {
+        user = await this.usersService.update(user.id, updates);
+      }
     }
 
     // Auto-promote super_admin untuk email owner project

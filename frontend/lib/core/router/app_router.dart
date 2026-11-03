@@ -15,6 +15,7 @@ import '../../features/admin/screens/admin_articles_screen.dart';
 import '../../features/admin/screens/admin_mitigasi_screen.dart';
 import '../../features/admin/screens/admin_peralatan_screen.dart';
 import '../../features/admin/screens/admin_users_screen.dart';
+import '../../features/notifications/screens/notification_screen.dart';
 
 class AppRoutes {
   static const splash = '/';
@@ -26,6 +27,7 @@ class AppRoutes {
   static const emergency = '/emergency';
   static const evacuation = '/evacuation';
   static const profile = '/profile';
+  static const notifications = '/notifications';
   static const admin = '/admin';
   static const adminArticles = '/admin/articles';
   static const adminMitigasi = '/admin/mitigasi';
@@ -93,6 +95,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const ProfileScreen(),
           ),
         ],
+      ),
+      GoRoute(
+        path: AppRoutes.notifications,
+        builder: (_, __) => const NotificationHistoryScreen(),
       ),
       GoRoute(
         path: AppRoutes.admin,

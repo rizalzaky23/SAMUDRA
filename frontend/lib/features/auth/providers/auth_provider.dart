@@ -75,6 +75,45 @@ class AuthNotifier extends StateNotifier<AuthState> {
             role: savedRole,
           ),
         );
+
+        // Background sync profil user & avatar terkini dari backend
+        final token = await _storage.read(key: AppConstants.accessTokenKey);
+        if (token != null && token.isNotEmpty) {
+          Future.microtask(() async {
+            try {
+              final dio = Dio();
+              dio.options.headers['Authorization'] = 'Bearer $token';
+              final res = await dio
+                  .get('${AppConstants.apiBaseUrl}/users/profile')
+                  .timeout(const Duration(seconds: 4));
+              if (res.statusCode == 200 && res.data != null) {
+                final d = res.data;
+                final newAvatar = d['avatarUrl']?.toString() ?? savedAvatar;
+                final newName = d['name']?.toString() ?? savedName;
+                final newRole = d['role']?.toString() ?? savedRole;
+                if (newAvatar != null && newAvatar.isNotEmpty) {
+                  await _storage.write(key: 'user_avatar', value: newAvatar);
+                }
+                if (newName.isNotEmpty) {
+                  await _storage.write(key: 'user_name', value: newName);
+                }
+                if (newRole.isNotEmpty) {
+                  await _storage.write(key: 'user_role', value: newRole);
+                }
+                state = state.copyWith(
+                  user: UserModel(
+                    id: d['id']?.toString() ?? savedId,
+                    name: newName,
+                    email: d['email']?.toString() ?? savedEmail,
+                    avatarUrl: newAvatar,
+                    role: newRole,
+                    phone: d['phone']?.toString(),
+                  ),
+                );
+              }
+            } catch (_) {}
+          });
+        }
         return;
       }
 
@@ -135,9 +174,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
             }
             // Save role from backend (penting untuk super_admin auto-promote)
             final userData = data['user'];
-            if (userData != null && userData['role'] != null) {
-              await _storage.write(
-                  key: 'user_role', value: userData['role'].toString());
+            if (userData != null) {
+              if (userData['role'] != null) {
+                await _storage.write(
+                    key: 'user_role', value: userData['role'].toString());
+              }
+              if (userData['avatarUrl'] != null &&
+                  userData['avatarUrl'].toString().isNotEmpty) {
+                await _storage.write(
+                    key: 'user_avatar', value: userData['avatarUrl'].toString());
+              }
             }
           }
         } catch (e) {

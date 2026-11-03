@@ -23,6 +23,7 @@
 | `settingsProvider` | `core/providers/settings_provider.dart` | `AppSettings` (lokasi, notif, bahasa) |
 | `earthquakeProvider` | `earthquake/providers/earthquake_provider.dart` | Data gempa terkini |
 | `homeDangerModeProvider` | `home/screens/home_screen.dart` | `bool` toggle bahaya manual |
+| `notificationsProvider` | `notifications/providers/notifications_provider.dart` | `NotificationsState` (riwayat notifikasi, unreadCount, sync lokal/backend) |
 
 ---
 
@@ -31,15 +32,16 @@
 File: `lib/core/router/app_router.dart`
 
 ```
-/           → SplashScreen
-/login      → LoginScreen
-/register   → RegisterScreen
-/home       → HomeScreen       (dalam ShellRoute + MainScaffold)
-/map        → MapScreen        (dalam ShellRoute)
-/history    → HistoryScreen    (dalam ShellRoute)
-/emergency  → EmergencyScreen  (dalam ShellRoute)
-/evacuation → MapScreen        (dalam ShellRoute, fokus evakuasi)
-/profile    → ProfileScreen    (dalam ShellRoute)
+/              → SplashScreen
+/login         → LoginScreen
+/register      → RegisterScreen
+/home          → HomeScreen       (dalam ShellRoute + MainScaffold)
+/map           → MapScreen        (dalam ShellRoute)
+/history       → HistoryScreen    (dalam ShellRoute)
+/emergency     → EmergencyScreen  (dalam ShellRoute)
+/evacuation    → MapScreen        (dalam ShellRoute, fokus evakuasi)
+/profile       → ProfileScreen    (dalam ShellRoute)
+/notifications → NotificationHistoryScreen (riwayat notifikasi peringatan)
 ```
 
 **Redirect logic:**

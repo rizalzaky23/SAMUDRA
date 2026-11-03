@@ -84,6 +84,25 @@ Entity: `src/earthquakes/entities/earthquake.entity.ts`
 
 ---
 
+## Tabel: `notifications_log`
+
+Entity: `src/notifications/entities/notification-log.entity.ts`
+
+| Kolom | Tipe | Keterangan |
+|-------|------|------------|
+| `id` | UUID (PK) | Auto-generated |
+| `user_id` | UUID, nullable | FK → users.id (null jika broadcast) |
+| `earthquake_id` | UUID, nullable | FK → earthquakes.id |
+| `status` | VARCHAR(50) | `SUCCESS` / `FAILED` / `DRY_RUN` |
+| `title` | VARCHAR(255), nullable | Judul notifikasi |
+| `body` | TEXT, nullable | Isi pesan notifikasi |
+| `type` | VARCHAR(100), nullable | `tsunami_alert` / `earthquake` / `new_article` / dll |
+| `payload_data` | TEXT, nullable | JSON string payload data |
+| `message` | TEXT, nullable | Format pesan / log |
+| `sent_at` | TIMESTAMPTZ | Waktu kirim |
+
+---
+
 ## Tabel yang direncanakan (future)
 
 Setelah implementasi admin:

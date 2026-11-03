@@ -90,6 +90,17 @@
 
 ---
 
+## Notifications (`/api/notifications`)
+
+| Method | Path | Role | Deskripsi |
+|--------|------|------|-----------|
+| `GET`  | `/notifications/status` | 🌐 | Cek status integrasi Firebase (ACTIVE/DRY_RUN) |
+| `GET`  | `/notifications/logs` | 🌐/🔑 | Riwayat notifikasi (publik + user personal, admin melihat semua) |
+| `POST` | `/notifications/test` | 🔑 | Kirim notifikasi uji coba ke akun sendiri |
+| `POST` | `/notifications/broadcast` | 🛡️ | Broadcast notifikasi ke seluruh pengguna atau topik |
+
+---
+
 ## Format Response Standar
 
 ### Sukses

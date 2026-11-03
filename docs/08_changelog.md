@@ -4,6 +4,53 @@
 
 ---
 
+## [2026-11-03] — Sinkronisasi Profil Google & Riwayat Notifikasi Beranda
+
+### Frontend
+
+#### `lib/features/home/screens/home_screen.dart`
+- **Diubah**: Mengganti avatar dummy "AR" di header beranda dengan foto akun Google pengguna (`CachedNetworkImage`) atau inisial nama dinamis dari akun pengguna yang login.
+- **Diubah**: Menambahkan navigasi `context.push(AppRoutes.profile)` saat avatar ditekan.
+- **Diubah**: Mengaktifkan tombol lonceng notifikasi di beranda dengan `context.push(AppRoutes.notifications)`.
+- **Diubah**: Menampilkan badge indikator unread notifikasi aktif pada tombol lonceng notifikasi di beranda.
+
+#### `lib/features/notifications/models/notification_model.dart` *(baru)*
+- **Baru**: Model `NotificationModel` untuk parsing data notifikasi (tsunami alert, earthquake, artikel baru, sistem), tanggal penerimaan, dan status dibaca.
+
+#### `lib/core/services/notification_service.dart`
+- **Diubah**: Menambahkan penyimpanan riwayat notifikasi lokal ke `SharedPreferences` saat push notification diterima (foreground, background, app opened).
+- **Diubah**: Menambahkan stream controller `onNewNotification` untuk update realtime UI saat notifikasi masuk.
+
+#### `lib/features/notifications/providers/notifications_provider.dart` *(baru)*
+- **Baru**: Provider Riverpod `notificationsProvider` yang menggabungkan riwayat notifikasi lokal dan sinkronisasi REST API backend (`/notifications/logs`), penghitung `unreadCount`, serta fungsi tandai dibaca dan hapus riwayat.
+
+#### `lib/features/notifications/screens/notification_screen.dart` *(baru)*
+- **Baru**: Halaman `NotificationHistoryScreen` lengkap dengan filter ("Semua", "Peringatan", "Edukasi & Info"), kartu visual alert gempa/tsunami, relative timestamp ("X menit lalu"), swipe dismiss, pull-to-refresh, dan menu tandai semua dibaca.
+
+#### `lib/core/router/app_router.dart`
+- **Diubah**: Menambahkan route `AppRoutes.notifications = '/notifications'` menuju `NotificationHistoryScreen`.
+
+#### `lib/features/auth/providers/auth_provider.dart`
+- **Diubah**: Sinkronisasi foto profil (`avatarUrl`) dan nama akun saat Google Sign-In dan auto-refresh background pada `_init()`.
+
+### Backend
+
+#### `src/notifications/entities/notification-log.entity.ts`
+- **Diubah**: Menambahkan kolom `title`, `body`, `type`, dan `payloadData` pada entity `NotificationLog`.
+
+#### `src/notifications/notifications.service.ts`
+- **Diubah**: Memperbarui `recordLog()` untuk menyimpan judul, isi pesan, tipe alert, dan data payload secara lengkap.
+- **Diubah**: Memperbarui `getLogs()` agar user reguler dapat melihat notifikasi publik (tsunami/gempa/artikel) dan notifikasi personal mereka.
+- **Diubah**: Auto-seed notifikasi dari data gempa terkini jika riwayat notifikasi awal masih kosong.
+
+#### `src/notifications/notifications.controller.ts`
+- **Diubah**: Menambahkan decorator `@Public()` pada endpoint `GET /notifications/logs` sehingga dapat diakses baik oleh user login maupun tamu (guest).
+
+#### `src/auth/auth.service.ts`
+- **Diubah**: Memperbarui avatar dan nama user yang sudah ada ketika login Google menyertakan foto profil terbaru.
+
+---
+
 ## [2026-10-20] — Penambahan Sistem Role Admin & Super Admin
 
 ### Backend

@@ -144,7 +144,13 @@ frontend/
 │   │   │   └── widgets/
 │   │   │
 │   │   ├── dashboard/                  # (placeholder)
-│   │   ├── notifications/              # (placeholder)
+│   │   ├── notifications/              # Fitur riwayat notifikasi & alert
+│   │   │   ├── models/
+│   │   │   │   └── notification_model.dart # Model notifikasi
+│   │   │   ├── providers/
+│   │   │   │   └── notifications_provider.dart # State riwayat notifikasi
+│   │   │   └── screens/
+│   │   │       └── notification_screen.dart # Layar riwayat notifikasi & peringatan
 │   │   │
 │   │   └── profile/
 │   │       ├── providers/

@@ -13,6 +13,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 import { User, UserRole } from '../users/entities/user.entity';
 
 @ApiTags('Notifications')
@@ -73,17 +74,18 @@ export class NotificationsController {
     });
   }
 
-  @Get('logs')
+  @Public()
   @UseGuards(JwtAuthGuard)
+  @Get('logs')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Ambil riwayat pengiriman notifikasi' })
   @ApiQuery({ name: 'limit', required: false, type: Number })
-  async getLogs(@CurrentUser() user: User, @Query('limit') limit = 20) {
-    // Admin bisa melihat semua log, user biasa hanya log miliknya
+  async getLogs(@CurrentUser() user?: User, @Query('limit') limit = 30) {
+    // Admin bisa melihat semua log, user biasa/tamu melihat log publik & personal
     const userId =
-      user.role === UserRole.ADMIN || user.role === UserRole.SUPER_ADMIN
+      user?.role === UserRole.ADMIN || user?.role === UserRole.SUPER_ADMIN
         ? undefined
-        : user.id;
+        : user?.id;
 
     return this.notificationsService.getLogs(userId, +limit);
   }

@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../network/api_client.dart';
+import '../../features/notifications/models/notification_model.dart';
 
 /// Top-level background message handler wajib berada di luar kelas
 @pragma('vm:entry-point')
@@ -13,12 +16,17 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     await Firebase.initializeApp();
   } catch (_) {}
   debugPrint('FCM background message received: ${message.messageId} - ${message.notification?.title}');
+  await NotificationService.saveRemoteMessageLocally(message);
 }
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
+
+  static const String storageKey = 'samudra_local_notifications_v1';
+  static final StreamController<NotificationModel> onNewNotification =
+      StreamController<NotificationModel>.broadcast();
 
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
@@ -27,6 +35,132 @@ class NotificationService {
   String? _fcmToken;
 
   String? get fcmToken => _fcmToken;
+
+  /// Simpan notifikasi dari RemoteMessage FCM ke penyimpanan lokal
+  static Future<NotificationModel?> saveRemoteMessageLocally(RemoteMessage message) async {
+    try {
+      final title = message.notification?.title ?? message.data['title'] ?? 'Peringatan SAMUDRA';
+      final body = message.notification?.body ?? message.data['body'] ?? 'Informasi peringatan bencana BMKG';
+      final type = message.data['type'] ?? (title.toLowerCase().contains('tsunami') ? 'tsunami_alert' : 'info');
+
+      final item = NotificationModel(
+        id: message.messageId ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        title: title,
+        body: body,
+        type: type,
+        sentAt: message.sentTime ?? DateTime.now(),
+        isRead: false,
+        data: message.data,
+      );
+
+      await saveNotification(item);
+      onNewNotification.add(item);
+      return item;
+    } catch (e) {
+      debugPrint('Failed to save notification locally: $e');
+      return null;
+    }
+  }
+
+  /// Simpan satu item notifikasi ke SharedPreferences
+  static Future<void> saveNotification(NotificationModel item) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rawList = prefs.getStringList(storageKey) ?? [];
+
+      // Hindari duplikasi ID
+      final updated = <String>[jsonEncode(item.toJson())];
+      for (final raw in rawList) {
+        try {
+          final decoded = jsonDecode(raw);
+          if (decoded['id']?.toString() != item.id) {
+            updated.add(raw);
+          }
+        } catch (_) {}
+      }
+
+      // Simpan maksimal 100 riwayat notifikasi lokal
+      await prefs.setStringList(storageKey, updated.take(100).toList());
+    } catch (e) {
+      debugPrint('Error saving notification: $e');
+    }
+  }
+
+  /// Ambil riwayat notifikasi yang tersimpan di lokal
+  static Future<List<NotificationModel>> getStoredNotifications() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rawList = prefs.getStringList(storageKey) ?? [];
+      final list = <NotificationModel>[];
+
+      for (final raw in rawList) {
+        try {
+          final map = jsonDecode(raw);
+          list.add(NotificationModel.fromJson(map));
+        } catch (_) {}
+      }
+      return list;
+    } catch (e) {
+      debugPrint('Error loading stored notifications: $e');
+      return [];
+    }
+  }
+
+  /// Tandai notifikasi spesifik sebagai dibaca
+  static Future<void> markAsRead(String id) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rawList = prefs.getStringList(storageKey) ?? [];
+      final updated = <String>[];
+
+      for (final raw in rawList) {
+        try {
+          final map = jsonDecode(raw) as Map<String, dynamic>;
+          if (map['id']?.toString() == id) {
+            map['isRead'] = true;
+          }
+          updated.add(jsonEncode(map));
+        } catch (_) {
+          updated.add(raw);
+        }
+      }
+      await prefs.setStringList(storageKey, updated);
+    } catch (e) {
+      debugPrint('Error marking notification as read: $e');
+    }
+  }
+
+  /// Tandai semua notifikasi lokal sebagai dibaca
+  static Future<void> markAllAsRead() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rawList = prefs.getStringList(storageKey) ?? [];
+      final updated = <String>[];
+
+      for (final raw in rawList) {
+        try {
+          final map = jsonDecode(raw) as Map<String, dynamic>;
+          map['isRead'] = true;
+          updated.add(jsonEncode(map));
+        } catch (_) {
+          updated.add(raw);
+        }
+      }
+      await prefs.setStringList(storageKey, updated);
+    } catch (e) {
+      debugPrint('Error marking all notifications as read: $e');
+    }
+  }
+
+  /// Hapus semua riwayat notifikasi lokal
+  static Future<void> clearAllNotifications() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(storageKey);
+    } catch (e) {
+      debugPrint('Error clearing notifications: $e');
+    }
+  }
 
   /// Inisialisasi Firebase Messaging & Local Notification channel
   Future<void> init() async {
@@ -102,8 +236,9 @@ class NotificationService {
       });
 
       // 9. Handle notifikasi saat aplikasi berada di FOREGROUND (terbuka di layar)
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
         debugPrint('Foreground message: ${message.notification?.title}');
+        await saveRemoteMessageLocally(message);
         final notification = message.notification;
         if (notification != null) {
           _localNotifications.show(
@@ -131,8 +266,9 @@ class NotificationService {
       });
 
       // 10. Handle notifikasi saat aplikasi dibuka dari keadaan background
-      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) async {
         debugPrint('App opened from notification: ${message.data}');
+        await saveRemoteMessageLocally(message);
         // Bisa trigger routing ke /earthquake/:id
       });
 

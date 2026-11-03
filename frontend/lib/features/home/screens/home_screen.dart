@@ -5,6 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/router/app_router.dart';
 import '../../earthquake/providers/earthquake_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../notifications/providers/notifications_provider.dart';
 import '../../blog/models/article_model.dart';
 import '../../blog/providers/articles_provider.dart';
 import '../../blog/widgets/article_detail_sheet.dart';
@@ -133,10 +135,23 @@ class HomeScreen extends ConsumerWidget {
   // ── Top Bar (Shared on both screens) ──
   Widget _buildTopBar(BuildContext context, WidgetRef ref,
       {required bool isDanger, required bool hasTsunamiWarning}) {
+    final authState = ref.watch(authStateProvider);
+    final user = authState.user;
+    final initials = _getInitials(user?.name);
+    final hasAvatar =
+        user?.avatarUrl != null && user!.avatarUrl!.trim().isNotEmpty;
+
+    final notificationsState = ref.watch(notificationsProvider);
+    final unreadCount = notificationsState.unreadCount;
+    final showBadge = hasTsunamiWarning || unreadCount > 0;
+
     return Row(
       children: [
-        // Rounded circular Avatar with initials "AR" (semi-translucent with subtle border)
+        // Rounded circular Avatar with user photo (Google profile) or dynamic initials
         GestureDetector(
+          onTap: () {
+            context.push(AppRoutes.profile);
+          },
           onLongPress: () {
             // Secret/quick toggle for testing
             ref.read(homeDangerModeProvider.notifier).state = !isDanger;
@@ -148,19 +163,48 @@ class HomeScreen extends ConsumerWidget {
               shape: BoxShape.circle,
               color: Colors.white.withValues(alpha: 0.18),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.25),
-                width: 1,
+                color: Colors.white.withValues(alpha: 0.35),
+                width: 1.5,
               ),
             ),
-            child: Center(
-              child: Text(
-                'AR',
-                style: GoogleFonts.inter(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
+            child: ClipOval(
+              child: hasAvatar
+                  ? CachedNetworkImage(
+                      imageUrl: user.avatarUrl!,
+                      width: 42,
+                      height: 42,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Center(
+                        child: Text(
+                          initials,
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      errorWidget: (_, __, ___) => Center(
+                        child: Text(
+                          initials,
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    )
+                  : Center(
+                      child: Text(
+                        initials,
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
             ),
           ),
         ),
@@ -202,47 +246,65 @@ class HomeScreen extends ConsumerWidget {
           ),
         ),
 
-        // Notification Bell — red badge only when tsunami warning is active
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.18),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.25),
-              width: 1,
-            ),
-          ),
-          child: Stack(
-            children: [
-              const Center(
-                child: Icon(
-                  Icons.notifications_none_rounded,
-                  color: Colors.white,
-                  size: 21,
-                ),
+        // Notification Bell — tap to open Notification History
+        GestureDetector(
+          onTap: () {
+            context.push(AppRoutes.notifications);
+          },
+          child: Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.25),
+                width: 1,
               ),
-              // Red warning badge — hanya saat ada potensi tsunami
-              if (hasTsunamiWarning)
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    width: 9,
-                    height: 9,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEF4444),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 1.5),
-                    ),
+            ),
+            child: Stack(
+              children: [
+                const Center(
+                  child: Icon(
+                    Icons.notifications_none_rounded,
+                    color: Colors.white,
+                    size: 21,
                   ),
                 ),
-            ],
+                // Badge indikator notifikasi (merah untuk tsunami/awas, oranye untuk unread baru)
+                if (showBadge)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      width: 9,
+                      height: 9,
+                      decoration: BoxDecoration(
+                        color: hasTsunamiWarning
+                            ? const Color(0xFFEF4444)
+                            : const Color(0xFFF59E0B),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ],
     );
+  }
+
+  String _getInitials(String? name) {
+    if (name == null || name.trim().isEmpty) return 'U';
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    } else if (parts.isNotEmpty && parts[0].isNotEmpty) {
+      return parts[0][0].toUpperCase();
+    }
+    return 'U';
   }
 
   // ── Layar Kiri: Header Info (Merah - Status Bahaya) ──

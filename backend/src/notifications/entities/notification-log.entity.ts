@@ -36,6 +36,22 @@ export class NotificationLog {
   @Column({ length: 50 })
   status: string;
 
+  @ApiProperty({ required: false, nullable: true })
+  @Column({ nullable: true })
+  title?: string;
+
+  @ApiProperty({ required: false, nullable: true })
+  @Column({ type: 'text', nullable: true })
+  body?: string;
+
+  @ApiProperty({ required: false, nullable: true })
+  @Column({ nullable: true })
+  type?: string;
+
+  @ApiProperty({ required: false, nullable: true })
+  @Column({ type: 'text', nullable: true })
+  payloadData?: string;
+
   @ApiProperty()
   @Column({ nullable: true })
   message: string;
