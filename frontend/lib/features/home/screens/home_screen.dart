@@ -150,7 +150,7 @@ class HomeScreen extends ConsumerWidget {
         // Rounded circular Avatar with user photo (Google profile) or dynamic initials
         GestureDetector(
           onTap: () {
-            context.push(AppRoutes.profile);
+            context.go(AppRoutes.profile);
           },
           onLongPress: () {
             // Secret/quick toggle for testing

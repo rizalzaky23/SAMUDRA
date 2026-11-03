@@ -317,7 +317,7 @@ export class EmergencyService {
     const item = this.safePointRepo.create({
       ...dto,
       icon: dto.icon?.trim() || '⛺',
-      authorId: author.id,
+      authorId: author?.id || null,
     });
     return this.safePointRepo.save(item);
   }

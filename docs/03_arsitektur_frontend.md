@@ -43,7 +43,18 @@ File: `lib/core/router/app_router.dart`
 /evacuation    → MapScreen        (dalam ShellRoute, fokus evakuasi)
 /profile       → ProfileScreen    (dalam ShellRoute)
 /notifications → NotificationHistoryScreen (riwayat notifikasi peringatan)
+/admin              → AdminDashboardScreen (menu kelola konten & sistem)
+/admin/articles     → AdminArticlesScreen
+/admin/mitigasi     → AdminMitigasiScreen
+/admin/peralatan    → AdminPeralatanScreen
+/admin/users        → AdminUsersScreen
+/admin/safe-points  → AdminSafePointsScreen (kelola titik aman evakuasi peta)
 ```
+
+**Konfigurasi Navigator & ShellRoute:**
+- Menggunakan `_rootNavigatorKey` dan `_shellNavigatorKey` terpisah untuk mencegah duplikasi key pada `Navigator(pages: [...])`.
+- Navigasi ke rute di dalam `ShellRoute` (misal `/map`, `/profile`) harus menggunakan `context.go()` bukan `context.push()` agar tidak menduplikasi instance shell page di root stack (`!keyReservation.contains(key)`).
+- Rute `/admin/*` berada di luar `ShellRoute` dan dibuka via `context.push()`. Dari halaman admin atau notifikasi, tautan ke peta diarahkan via `context.go(AppRoutes.map)` atau ke layar manajemen khusus `/admin/safe-points`.
 
 **Redirect logic:**
 - Jika belum login (`!isAuthenticated && !isGuest`) → redirect ke `/login`

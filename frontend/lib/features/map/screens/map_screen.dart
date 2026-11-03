@@ -1541,7 +1541,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
   // ── Modal Tambah Titik Aman (Admin & Super Admin) ──
 
-  void _showAddSafePointDialog(BuildContext context, LatLng initialCoords) {
+  void _showAddSafePointDialog(BuildContext rootContext, LatLng initialCoords) {
     final nameCtrl = TextEditingController();
     final subtitleCtrl = TextEditingController();
     final latCtrl = TextEditingController(
@@ -1555,11 +1555,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final icons = ['⛺', '🏔️', '🏛️', '🕌', '🏟️', '🏥', '🏢'];
 
     showModalBottomSheet(
-      context: context,
+      context: rootContext,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setSheetState) {
+      builder: (modalCtx) => StatefulBuilder(
+        builder: (innerCtx, setSheetState) {
           return Container(
             decoration: const BoxDecoration(
               color: Colors.white,
@@ -1569,7 +1569,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
               20,
               12,
               20,
-              MediaQuery.of(context).viewInsets.bottom + 24,
+              MediaQuery.of(innerCtx).viewInsets.bottom + 24,
             ),
             child: SingleChildScrollView(
               child: Column(
@@ -1783,7 +1783,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                           : () async {
                               final name = nameCtrl.text.trim();
                               if (name.isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                ScaffoldMessenger.of(innerCtx).showSnackBar(
                                   const SnackBar(
                                       content:
                                           Text('Nama titik aman wajib diisi')),
@@ -1796,7 +1796,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                               final lng =
                                   double.tryParse(lngCtrl.text.trim());
                               if (lat == null || lng == null) {
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                ScaffoldMessenger.of(innerCtx).showSnackBar(
                                   const SnackBar(
                                       content:
                                           Text('Koordinat lokasi tidak valid')),
@@ -1806,6 +1806,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
                               setSheetState(() => isSubmitting = true);
 
+                              final messenger =
+                                  ScaffoldMessenger.of(rootContext);
+                              final navigator = Navigator.of(modalCtx);
                               final success = await ref
                                   .read(safePointsProvider.notifier)
                                   .createSafePoint(
@@ -1818,32 +1821,32 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                         int.tryParse(capCtrl.text.trim()),
                                   );
 
-                              if (context.mounted) {
-                                Navigator.pop(ctx);
-                                if (success) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                          'Titik aman "$name" berhasil ditambahkan!'),
-                                      backgroundColor:
-                                          const Color(0xFF059669),
-                                      behavior: SnackBarBehavior.floating,
-                                    ),
-                                  );
+                              navigator.pop();
+                              if (success) {
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                        'Titik aman "$name" berhasil ditambahkan!'),
+                                    backgroundColor:
+                                        const Color(0xFF059669),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                                if (mounted) {
                                   _mapController.move(LatLng(lat, lng), 15);
                                   final userLoc = ref.read(
                                           _userLocationProvider) ??
                                       _jogjaCenter;
                                   _fetchRoute(userLoc);
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                          'Gagal menyimpan titik aman. Periksa koneksi backend.'),
-                                      backgroundColor: AppColors.danger,
-                                    ),
-                                  );
                                 }
+                              } else {
+                                messenger.showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                        'Gagal menyimpan titik aman. Periksa koneksi backend.'),
+                                    backgroundColor: AppColors.danger,
+                                  ),
+                                );
                               }
                             },
                       style: ElevatedButton.styleFrom(

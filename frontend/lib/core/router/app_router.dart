@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/auth/screens/splash_screen.dart';
@@ -15,6 +16,7 @@ import '../../features/admin/screens/admin_articles_screen.dart';
 import '../../features/admin/screens/admin_mitigasi_screen.dart';
 import '../../features/admin/screens/admin_peralatan_screen.dart';
 import '../../features/admin/screens/admin_users_screen.dart';
+import '../../features/admin/screens/admin_safe_points_screen.dart';
 import '../../features/notifications/screens/notification_screen.dart';
 
 class AppRoutes {
@@ -33,12 +35,17 @@ class AppRoutes {
   static const adminMitigasi = '/admin/mitigasi';
   static const adminPeralatan = '/admin/peralatan';
   static const adminUsers = '/admin/users';
+  static const adminSafePoints = '/admin/safe-points';
 }
+
+final _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'rootNav');
+final _shellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'shellNav');
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
 
   return GoRouter(
+    navigatorKey: _rootNavigatorKey,
     initialLocation: AppRoutes.splash,
     redirect: (context, state) {
       final isLoggedIn = authState.isAuthenticated || authState.isGuest;
@@ -68,6 +75,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const RegisterScreen(),
       ),
       ShellRoute(
+        navigatorKey: _shellNavigatorKey,
         builder: (context, state, child) => MainScaffold(child: child),
         routes: [
           GoRoute(
@@ -119,6 +127,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.adminUsers,
         builder: (_, __) => const AdminUsersScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.adminSafePoints,
+        builder: (_, __) => const AdminSafePointsScreen(),
       ),
     ],
   );

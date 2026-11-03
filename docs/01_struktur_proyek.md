@@ -156,6 +156,17 @@ frontend/
 │   │   │   └── screens/
 │   │   │       └── notification_screen.dart # Layar riwayat notifikasi & peringatan
 │   │   │
+│   │   ├── admin/                      # Manajemen Admin & Super Admin
+│   │   │   ├── providers/
+│   │   │   │   └── admin_provider.dart
+│   │   │   └── screens/
+│   │   │       ├── admin_dashboard_screen.dart    # Menu utama admin panel
+│   │   │       ├── admin_articles_screen.dart     # Kelola artikel edukasi
+│   │   │       ├── admin_mitigasi_screen.dart     # Kelola langkah mitigasi
+│   │   │       ├── admin_peralatan_screen.dart    # Kelola peralatan siaga
+│   │   │       ├── admin_safe_points_screen.dart  # Kelola titik aman peta
+│   │   │       └── admin_users_screen.dart        # Kelola pengguna & role
+│   │   │
 │   │   └── profile/
 │   │       ├── providers/
 │   │       └── screens/

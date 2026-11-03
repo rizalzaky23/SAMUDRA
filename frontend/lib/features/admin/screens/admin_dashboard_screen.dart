@@ -39,7 +39,7 @@ class AdminDashboardScreen extends ConsumerWidget {
         title: 'Titik Aman Peta',
         subtitle: 'Tambah & kelola titik aman evakuasi di peta',
         color: const Color(0xFF10B981),
-        onTap: () => context.push(AppRoutes.map),
+        onTap: () => context.push(AppRoutes.adminSafePoints),
       ),
     ];
 

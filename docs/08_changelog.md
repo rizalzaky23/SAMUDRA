@@ -4,6 +4,25 @@
 
 ---
 
+## [2026-11-03] — Perbaikan Navigasi Titik Aman Admin & Halaman Manajemen Titik Aman
+
+### Masalah
+- Terjadi Red Screen of Death (`Failed assertion: line 4096 pos 18: '!keyReservation.contains(key)': is not true`) saat membuka "Titik Aman Peta" dari Admin Dashboard. Hal ini disebabkan oleh penggunaan `context.push()` ke rute `/map` yang merupakan child dari `ShellRoute`, sehingga GoRouter mencoba menduplikasi entri ShellRoute di root Navigator stack.
+
+### Solusi & Pembaruan
+1. **Layar Manajemen Khusus Admin**:
+   - `frontend/lib/features/admin/screens/admin_safe_points_screen.dart` *(baru)*: Dibuat halaman khusus admin untuk mengelola titik aman evakuasi (daftar titik lengkap, pencarian, badge koordinat & kapasitas, aksi hapus titik aman, dialog tambah titik aman dengan validasi input, serta banner shortcut ke Peta Evakuasi).
+2. **Perbaikan Navigasi GoRouter & ShellRoute**:
+   - `frontend/lib/core/router/app_router.dart`: Dikonfigurasi `_rootNavigatorKey` dan `_shellNavigatorKey` terpisah. Menambahkan rute `/admin/safe-points` (`AdminSafePointsScreen`).
+   - `frontend/lib/features/admin/screens/admin_dashboard_screen.dart`: Diarahkan menu "Titik Aman Peta" menuju `AppRoutes.adminSafePoints` via `context.push()`.
+   - `frontend/lib/features/home/screens/home_screen.dart` & `frontend/lib/features/notifications/screens/notification_screen.dart`: Diganti navigasi ke rute `ShellRoute` (`/map`, `/profile`) menggunakan `context.go()` bukan `context.push()`.
+3. **Perbaikan Dialog Tambah Titik Aman pada Peta**:
+   - `frontend/lib/features/map/screens/map_screen.dart`: Diperbaiki penanganan `BuildContext` pada `showModalBottomSheet` agar tidak membayangi `context` induk dan tidak memanggil `ScaffoldMessenger` dari widget yang telah di-pop.
+4. **Backend Resiliency**:
+   - `backend/src/emergency/emergency.service.ts`: Fallback aman `authorId: author?.id || null` pada pembuatan titik aman.
+
+---
+
 ## [2026-11-03] — Fitur Admin Tambah Titik Aman Peta & Loading Screen Riwayat Gempa
 
 ### Backend

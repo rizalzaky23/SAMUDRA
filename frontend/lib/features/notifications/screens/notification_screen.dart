@@ -412,7 +412,7 @@ class _NotificationHistoryScreenState
   void _handleNotificationTap(NotificationModel item) {
     if (item.isTsunami || item.isEarthquake) {
       // Buka Peta Live atau Riwayat Gempa
-      context.push(AppRoutes.map);
+      context.go(AppRoutes.map);
     }
   }
 
