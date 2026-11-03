@@ -128,8 +128,12 @@ frontend/
 │   │   │   └── widgets/
 │   │   │
 │   │   ├── map/
+│   │   │   ├── models/
+│   │   │   │   └── safe_point_model.dart      # Model titik aman / evakuasi
+│   │   │   ├── providers/
+│   │   │   │   └── safe_points_provider.dart  # State & CRUD titik aman peta
 │   │   │   └── screens/
-│   │   │       └── map_screen.dart
+│   │   │       └── map_screen.dart            # Peta rute evakuasi live & tambah titik aman (admin)
 │   │   │
 │   │   ├── emergency/
 │   │   │   ├── providers/

@@ -90,6 +90,17 @@
 
 ---
 
+## Safe Points (`/api/safe-points`)
+
+| Method | Path | Role | Deskripsi |
+|--------|------|------|-----------|
+| `GET`  | `/safe-points` | 🌐 | Daftar semua titik aman di peta |
+| `POST` | `/safe-points` | 🛡️ | [Admin] Tambah titik aman baru ke peta |
+| `PATCH`| `/safe-points/:id` | 🛡️ | [Admin] Update data titik aman |
+| `DELETE`| `/safe-points/:id` | 🛡️ | [Admin] Hapus titik aman dari peta |
+
+---
+
 ## Notifications (`/api/notifications`)
 
 | Method | Path | Role | Deskripsi |

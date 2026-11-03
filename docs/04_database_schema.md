@@ -131,6 +131,21 @@ Setelah implementasi admin:
 | `created_at` | TIMESTAMPTZ |
 | `updated_at` | TIMESTAMPTZ |
 
+### `safe_points` (Titik Aman & Evakuasi Peta)
+Entity: `src/emergency/entities/safe-point.entity.ts`
+| Kolom | Tipe | Keterangan |
+|-------|------|------------|
+| `id` | UUID (PK) | Auto-generated |
+| `name` | VARCHAR(255) | Nama titik aman |
+| `subtitle` | TEXT, nullable | Keterangan / fasilitas titik aman |
+| `latitude` | DECIMAL(10, 7) | Koordinat latitude |
+| `longitude` | DECIMAL(10, 7) | Koordinat longitude |
+| `icon` | VARCHAR(50) | Emoji/icon (default: `⛺`) |
+| `capacity` | INTEGER, nullable | Estimasi daya tampung pengungsi |
+| `author_id` | UUID (FK → users.id) | Admin/Super Admin pembuat |
+| `created_at` | TIMESTAMPTZ | Auto |
+| `updated_at` | TIMESTAMPTZ | Auto |
+
 ---
 
 ## Relasi Antar Tabel

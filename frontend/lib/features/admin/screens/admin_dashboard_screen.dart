@@ -34,6 +34,13 @@ class AdminDashboardScreen extends ConsumerWidget {
         color: const Color(0xFFF59E0B),
         onTap: () => context.push(AppRoutes.adminPeralatan),
       ),
+      _AdminMenu(
+        icon: Icons.add_location_alt_rounded,
+        title: 'Titik Aman Peta',
+        subtitle: 'Tambah & kelola titik aman evakuasi di peta',
+        color: const Color(0xFF10B981),
+        onTap: () => context.push(AppRoutes.map),
+      ),
     ];
 
     return Scaffold(

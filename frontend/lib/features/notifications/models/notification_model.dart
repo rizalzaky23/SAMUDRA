@@ -109,3 +109,4 @@ class NotificationModel {
       type == 'articles' ||
       title.toLowerCase().contains('artikel');
 }
+

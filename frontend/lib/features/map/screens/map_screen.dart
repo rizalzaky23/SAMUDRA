@@ -8,6 +8,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:dio/dio.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../models/safe_point_model.dart';
+import '../providers/safe_points_provider.dart';
 
 // ─── OSRM Routing Service ────────────────────────────────────────────────────
 
@@ -145,16 +148,20 @@ final _selectedProfileProvider = StateProvider<String>((ref) => 'foot');
 // ─── Evacuation Points ───────────────────────────────────────────────────────
 
 class _EvacPoint {
+  final String id;
   final String name;
   final String subtitle;
   final LatLng location;
   final String icon;
+  final bool isCustom;
 
   const _EvacPoint({
+    this.id = '',
     required this.name,
     required this.subtitle,
     required this.location,
     required this.icon,
+    this.isCustom = false,
   });
 }
 
@@ -179,7 +186,27 @@ const _jogjaEvacPoints = [
   ),
 ];
 
-List<_EvacPoint> _getEvacuationPoints(LatLng userPos) {
+List<_EvacPoint> _getEvacuationPoints(LatLng userPos,
+    [List<SafePointModel> apiPoints = const []]) {
+  final list = <_EvacPoint>[];
+  final seenNames = <String>{};
+
+  // 1. Masukkan titik aman dari database (yang ditambahkan oleh Admin / Super Admin)
+  for (final p in apiPoints) {
+    list.add(
+      _EvacPoint(
+        id: p.id,
+        name: p.name,
+        subtitle: p.subtitle,
+        location: p.location,
+        icon: p.icon,
+        isCustom: true,
+      ),
+    );
+    seenNames.add(p.name.trim().toLowerCase());
+  }
+
+  // 2. Tambahkan titik evakuasi resmi jika belum ada di database
   final distToJogja = Geolocator.distanceBetween(
     userPos.latitude,
     userPos.longitude,
@@ -187,34 +214,37 @@ List<_EvacPoint> _getEvacuationPoints(LatLng userPos) {
     110.3695,
   );
 
-  // Jika dekat dengan Yogyakarta (< 60 km), gunakan titik evakuasi resmi Yogyakarta
-  if (distToJogja < 60000) {
-    return _jogjaEvacPoints;
+  final defaultPoints = distToJogja < 60000
+      ? _jogjaEvacPoints
+      : [
+          _EvacPoint(
+            name: 'Shelter Evakuasi Dataran Tinggi',
+            subtitle: 'Zona Ketinggian Aman Terdekat (~1.2 km)',
+            location: LatLng(userPos.latitude + 0.009, userPos.longitude + 0.007),
+            icon: '🏔️',
+          ),
+          _EvacPoint(
+            name: 'Posko Siaga Bencana Terpadu',
+            subtitle: 'Titik Kumpul Evakuasi Resmi (~1.8 km)',
+            location: LatLng(userPos.latitude - 0.008, userPos.longitude + 0.011),
+            icon: '⛺',
+          ),
+          _EvacPoint(
+            name: 'Gedung Evakuasi Vertikal',
+            subtitle: 'Struktur Beton Kuat >20m (~2.3 km)',
+            location: LatLng(userPos.latitude + 0.014, userPos.longitude - 0.009),
+            icon: '🏛️',
+          ),
+        ];
+
+  for (final d in defaultPoints) {
+    if (!seenNames.contains(d.name.trim().toLowerCase())) {
+      list.add(d);
+      seenNames.add(d.name.trim().toLowerCase());
+    }
   }
 
-  // Jika di luar DIY (misal emulator di California atau lokasi user lain),
-  // tempatkan 3 shelter evakuasi realistis di sekitar lokasi user (1 - 2.5 km)
-  // agar rute OSRM selalu valid dan navigasi realtime dapat berjalan sempurna!
-  return [
-    _EvacPoint(
-      name: 'Shelter Evakuasi Dataran Tinggi',
-      subtitle: 'Zona Ketinggian Aman Terdekat (~1.2 km)',
-      location: LatLng(userPos.latitude + 0.009, userPos.longitude + 0.007),
-      icon: '🏔️',
-    ),
-    _EvacPoint(
-      name: 'Posko Siaga Bencana Terpadu',
-      subtitle: 'Titik Kumpul Evakuasi Resmi (~1.8 km)',
-      location: LatLng(userPos.latitude - 0.008, userPos.longitude + 0.011),
-      icon: '⛺',
-    ),
-    _EvacPoint(
-      name: 'Gedung Evakuasi Vertikal',
-      subtitle: 'Struktur Beton Kuat >20m (~2.3 km)',
-      location: LatLng(userPos.latitude + 0.014, userPos.longitude - 0.009),
-      icon: '🏛️',
-    ),
-  ];
+  return list;
 }
 
 class MapScreen extends ConsumerStatefulWidget {
@@ -266,6 +296,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _positionStream?.cancel();
     _pulseController.dispose();
     super.dispose();
+  }
+
+  List<_EvacPoint> _getCurrentEvacPoints(LatLng userPos) {
+    final apiPoints = ref.read(safePointsProvider).points;
+    return _getEvacuationPoints(userPos, apiPoints);
   }
 
   // ── Inisialisasi Izin & Layanan GPS ──
@@ -369,7 +404,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
       final currentLatLng = LatLng(position.latitude, position.longitude);
       ref.read(_userLocationProvider.notifier).state = currentLatLng;
 
-      final evacPoints = _getEvacuationPoints(currentLatLng);
+      final evacPoints = _getCurrentEvacPoints(currentLatLng);
       final dest = evacPoints[_selectedEvacIndex % evacPoints.length].location;
       final distanceToDest = Geolocator.distanceBetween(
         currentLatLng.latitude,
@@ -544,7 +579,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     ref.read(_routeProvider.notifier).state = null;
 
     final profile = ref.read(_selectedProfileProvider);
-    final evacPoints = _getEvacuationPoints(from);
+    final evacPoints = _getCurrentEvacPoints(from);
     final destination = evacPoints[_selectedEvacIndex % evacPoints.length].location;
 
     final route = await OsrmService.getRoute(
@@ -591,7 +626,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   void _startNavigation() {
     final userLoc = ref.read(_userLocationProvider) ?? _jogjaCenter;
     final route = ref.read(_routeProvider);
-    final evacPoints = _getEvacuationPoints(userLoc);
+    final evacPoints = _getCurrentEvacPoints(userLoc);
     final selected = evacPoints[_selectedEvacIndex % evacPoints.length];
 
     if (_isNavigating) {
@@ -651,8 +686,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final route = ref.watch(_routeProvider);
     final isLoading = ref.watch(_isLoadingRouteProvider);
     final profile = ref.watch(_selectedProfileProvider);
-    final evacPoints = _getEvacuationPoints(userLocation);
-    final selectedPoint = evacPoints[_selectedEvacIndex % evacPoints.length];
+    final user = ref.watch(authStateProvider).user;
+    final isAdmin = user?.isAdmin == true;
+    final safePoints = ref.watch(safePointsProvider).points;
+    final evacPoints = _getEvacuationPoints(userLocation, safePoints);
+    final selectedPoint = evacPoints.isNotEmpty
+        ? evacPoints[_selectedEvacIndex % evacPoints.length]
+        : _jogjaEvacPoints[0];
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -664,6 +704,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
             options: MapOptions(
               initialCenter: userLocation,
               initialZoom: 14,
+              onLongPress: (tapPosition, point) {
+                if (isAdmin) {
+                  _showAddSafePointDialog(context, point);
+                }
+              },
             ),
             children: [
               TileLayer(
@@ -876,6 +921,18 @@ class _MapScreenState extends ConsumerState<MapScreen>
                         }
                       },
                     ),
+                    if (isAdmin) ...[
+                      const SizedBox(width: 8),
+                      _mapButton(
+                        icon: Icons.add_location_alt_rounded,
+                        backgroundColor: const Color(0xFF059669),
+                        iconColor: Colors.white,
+                        onTap: () {
+                          _showAddSafePointDialog(
+                              context, _mapController.camera.center);
+                        },
+                      ),
+                    ],
                   ],
                 ),
 
@@ -1078,13 +1135,34 @@ class _MapScreenState extends ConsumerState<MapScreen>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                selectedPoint.name,
-                                style: GoogleFonts.inter(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textPrimary,
-                                ),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      selectedPoint.name,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                  if (isAdmin &&
+                                      selectedPoint.isCustom &&
+                                      selectedPoint.id.isNotEmpty)
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.delete_outline_rounded,
+                                        color: AppColors.danger,
+                                        size: 20,
+                                      ),
+                                      tooltip: 'Hapus titik aman',
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      onPressed: () => _confirmDeleteSafePoint(
+                                          selectedPoint),
+                                    ),
+                                ],
                               ),
                               const SizedBox(height: 3),
                               if (route != null)
@@ -1434,14 +1512,19 @@ class _MapScreenState extends ConsumerState<MapScreen>
     );
   }
 
-  Widget _mapButton({required IconData icon, required VoidCallback onTap}) {
+  Widget _mapButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    Color? backgroundColor,
+    Color? iconColor,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: backgroundColor ?? Colors.white,
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
@@ -1451,7 +1534,399 @@ class _MapScreenState extends ConsumerState<MapScreen>
             ),
           ],
         ),
-        child: Icon(icon, color: AppColors.textPrimary, size: 22),
+        child: Icon(icon, color: iconColor ?? AppColors.textPrimary, size: 22),
+      ),
+    );
+  }
+
+  // ── Modal Tambah Titik Aman (Admin & Super Admin) ──
+
+  void _showAddSafePointDialog(BuildContext context, LatLng initialCoords) {
+    final nameCtrl = TextEditingController();
+    final subtitleCtrl = TextEditingController();
+    final latCtrl = TextEditingController(
+        text: initialCoords.latitude.toStringAsFixed(6));
+    final lngCtrl = TextEditingController(
+        text: initialCoords.longitude.toStringAsFixed(6));
+    final capCtrl = TextEditingController();
+    String selectedIcon = '⛺';
+    bool isSubmitting = false;
+
+    final icons = ['⛺', '🏔️', '🏛️', '🕌', '🏟️', '🏥', '🏢'];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: EdgeInsets.fromLTRB(
+              20,
+              12,
+              20,
+              MediaQuery.of(context).viewInsets.bottom + 24,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.border,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF059669)
+                              .withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'ADMIN PANEL',
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF059669),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Tambah Titik Aman',
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Titik aman baru akan langsung muncul di peta evakuasi semua pengguna.',
+                    style: GoogleFonts.inter(
+                      fontSize: 12.5,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Nama Titik
+                  Text('Nama Titik Aman *',
+                      style: GoogleFonts.inter(
+                          fontSize: 12.5, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Contoh: Posko Lapangan Merdeka / Bukit Aman',
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Keterangan / Subtitle
+                  Text('Keterangan Fasilitas / Ketinggian',
+                      style: GoogleFonts.inter(
+                          fontSize: 12.5, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: subtitleCtrl,
+                    decoration: InputDecoration(
+                      hintText:
+                          'Contoh: Dataran tinggi >30m, posko medis & logistik',
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Ikon Lokasi
+                  Text('Pilih Ikon Lokasi',
+                      style: GoogleFonts.inter(
+                          fontSize: 12.5, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: icons.map((ic) {
+                        final isSel = selectedIcon == ic;
+                        return GestureDetector(
+                          onTap: () => setSheetState(() => selectedIcon = ic),
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: isSel
+                                  ? const Color(0xFF059669)
+                                      .withValues(alpha: 0.15)
+                                  : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isSel
+                                    ? const Color(0xFF059669)
+                                    : Colors.transparent,
+                                width: 1.5,
+                              ),
+                            ),
+                            child:
+                                Text(ic, style: const TextStyle(fontSize: 22)),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Koordinat
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Latitude',
+                                style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 4),
+                            TextField(
+                              controller: latCtrl,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true, signed: true),
+                              decoration: InputDecoration(
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10)),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 10),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Longitude',
+                                style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 4),
+                            TextField(
+                              controller: lngCtrl,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true, signed: true),
+                              decoration: InputDecoration(
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10)),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 10),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Kapasitas
+                  Text('Kapasitas Jiwa (Opsional)',
+                      style: GoogleFonts.inter(
+                          fontSize: 12.5, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: capCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      hintText: 'Contoh: 500',
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Tombol Simpan
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: isSubmitting
+                          ? null
+                          : () async {
+                              final name = nameCtrl.text.trim();
+                              if (name.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content:
+                                          Text('Nama titik aman wajib diisi')),
+                                );
+                                return;
+                              }
+
+                              final lat =
+                                  double.tryParse(latCtrl.text.trim());
+                              final lng =
+                                  double.tryParse(lngCtrl.text.trim());
+                              if (lat == null || lng == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content:
+                                          Text('Koordinat lokasi tidak valid')),
+                                );
+                                return;
+                              }
+
+                              setSheetState(() => isSubmitting = true);
+
+                              final success = await ref
+                                  .read(safePointsProvider.notifier)
+                                  .createSafePoint(
+                                    name: name,
+                                    subtitle: subtitleCtrl.text.trim(),
+                                    latitude: lat,
+                                    longitude: lng,
+                                    icon: selectedIcon,
+                                    capacity:
+                                        int.tryParse(capCtrl.text.trim()),
+                                  );
+
+                              if (context.mounted) {
+                                Navigator.pop(ctx);
+                                if (success) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                          'Titik aman "$name" berhasil ditambahkan!'),
+                                      backgroundColor:
+                                          const Color(0xFF059669),
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                  _mapController.move(LatLng(lat, lng), 15);
+                                  final userLoc = ref.read(
+                                          _userLocationProvider) ??
+                                      _jogjaCenter;
+                                  _fetchRoute(userLoc);
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                          'Gagal menyimpan titik aman. Periksa koneksi backend.'),
+                                      backgroundColor: AppColors.danger,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF059669),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: isSubmitting
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2.5, color: Colors.white),
+                            )
+                          : Text(
+                              'Simpan Titik Aman',
+                              style: GoogleFonts.inter(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14.5,
+                              ),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _confirmDeleteSafePoint(_EvacPoint point) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Hapus Titik Aman?',
+          style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          'Titik aman "${point.name}" akan dihapus dari peta semua pengguna.',
+          style: GoogleFonts.inter(fontSize: 13.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Batal',
+                style: GoogleFonts.inter(color: AppColors.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final success = await ref
+                  .read(safePointsProvider.notifier)
+                  .deleteSafePoint(point.id);
+              if (mounted) {
+                if (success) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content:
+                          Text('Titik aman "${point.name}" berhasil dihapus'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                  setState(() => _selectedEvacIndex = 0);
+                  final userLoc =
+                      ref.read(_userLocationProvider) ?? _jogjaCenter;
+                  _fetchRoute(userLoc);
+                }
+              }
+            },
+            child: Text('Hapus',
+                style: GoogleFonts.inter(color: Colors.white)),
+          ),
+        ],
       ),
     );
   }

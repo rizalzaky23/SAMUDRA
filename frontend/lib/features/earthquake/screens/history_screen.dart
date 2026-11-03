@@ -86,9 +86,19 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   Widget build(BuildContext context) {
     final historyAsync = ref.watch(earthquakeHistoryProvider);
     final bmkgItems = historyAsync.valueOrNull?.map(_fromModel).toList();
-    final items = (bmkgItems != null && bmkgItems.isNotEmpty)
-        ? bmkgItems
-        : _defaultEarthquakes;
+
+    // Ketika masih loading, jangan tampilkan data dummy!
+    final List<_EarthquakeItem> items;
+    if (historyAsync.isLoading && bmkgItems == null) {
+      items = [];
+    } else if (bmkgItems != null && bmkgItems.isNotEmpty) {
+      items = bmkgItems;
+    } else if (historyAsync.hasError && (bmkgItems == null || bmkgItems.isEmpty)) {
+      items = _defaultEarthquakes;
+    } else {
+      items = bmkgItems ?? [];
+    }
+
     final filtered = _filterList(items);
 
     return Scaffold(
@@ -187,22 +197,53 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
             // ── List ──
             Expanded(
-              child: filtered.isEmpty
+              child: historyAsync.isLoading && bmkgItems == null
                   ? Center(
-                      child: Text(
-                        'Tidak ada data',
-                        style: GoogleFonts.inter(
-                            color: AppColors.textMuted, fontSize: 14),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const SizedBox(
+                            width: 36,
+                            height: 36,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 3,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Memuat riwayat gempa BMKG...',
+                            style: GoogleFonts.inter(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
                       ),
                     )
-                  : ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: filtered.length,
-                      separatorBuilder: (_, __) =>
-                          const SizedBox(height: 10),
-                      itemBuilder: (_, i) =>
-                          _buildEarthquakeCard(filtered[i]),
-                    ),
+                  : filtered.isEmpty
+                      ? Center(
+                          child: Text(
+                            'Tidak ada data gempa',
+                            style: GoogleFonts.inter(
+                                color: AppColors.textMuted, fontSize: 14),
+                          ),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: () async {
+                            ref.invalidate(earthquakeHistoryProvider);
+                          },
+                          color: AppColors.primary,
+                          child: ListView.separated(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: filtered.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 10),
+                            itemBuilder: (_, i) =>
+                                _buildEarthquakeCard(filtered[i]),
+                          ),
+                        ),
             ),
           ],
         ),

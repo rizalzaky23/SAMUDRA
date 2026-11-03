@@ -4,6 +4,45 @@
 
 ---
 
+## [2026-11-03] — Fitur Admin Tambah Titik Aman Peta & Loading Screen Riwayat Gempa
+
+### Backend
+
+#### `src/emergency/entities/safe-point.entity.ts` *(baru)*
+- **Baru**: Entity TypeORM `SafePoint` untuk menyimpan data titik aman evakuasi (`name`, `subtitle`, `latitude`, `longitude`, `icon`, `capacity`, `author_id`, `created_at`).
+
+#### `src/emergency/emergency.controller.ts` & `emergency.service.ts`
+- **Baru**: Endpoint `GET /safe-points` (publik) untuk mengambil seluruh titik aman.
+- **Baru**: Endpoint `POST /safe-points` (`@Roles(ADMIN, SUPER_ADMIN)`) untuk menambah titik aman baru.
+- **Baru**: Endpoint `PATCH /safe-points/:id` & `DELETE /safe-points/:id` untuk update dan hapus titik aman.
+- **Baru**: Inisialisasi data titik aman default jika database masih baru.
+
+#### `src/emergency/emergency.module.ts`
+- **Diubah**: Menambahkan `SafePoint` ke dalam `TypeOrmModule.forFeature()`.
+
+### Frontend
+
+#### `lib/features/earthquake/screens/history_screen.dart`
+- **Diubah**: Menambahkan simple loading indicator saat data riwayat gempa BMKG sedang dimuat, mencegah tampilan data dummy/fallback sebelum proses fetch selesai.
+- **Diubah**: Menambahkan `RefreshIndicator` untuk mempermudah reload data riwayat gempa.
+
+#### `lib/features/map/models/safe_point_model.dart` *(baru)*
+- **Baru**: Model `SafePointModel` untuk representasi data titik aman di peta dan konversi ke `LatLng`.
+
+#### `lib/features/map/providers/safe_points_provider.dart` *(baru)*
+- **Baru**: Riverpod provider `safePointsProvider` untuk load data titik aman, tambah (`createSafePoint`), dan hapus (`deleteSafePoint`).
+
+#### `lib/features/map/screens/map_screen.dart`
+- **Diubah**: Titik evakuasi di peta otomatis menggabungkan titik aman dari backend yang ditambahkan oleh admin.
+- **Diubah**: Menambahkan tombol `+ Titik Aman` (khusus role Admin & Super Admin) di peta untuk membuka modal tambah titik aman.
+- **Diubah**: Menambahkan event `onLongPress` di peta agar Admin & Super Admin dapat langsung menunjuk koordinat di peta untuk menambahkan titik aman.
+- **Diubah**: Menambahkan opsi hapus titik aman khusus titik kustom buatan admin.
+
+#### `lib/features/admin/screens/admin_dashboard_screen.dart`
+- **Diubah**: Menambahkan menu card navigasi cepat "Titik Aman Peta" di Panel Admin.
+
+---
+
 ## [2026-11-03] — Sinkronisasi Profil Google & Riwayat Notifikasi Beranda
 
 ### Frontend

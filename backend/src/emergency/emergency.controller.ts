@@ -17,6 +17,8 @@ import {
   UpdateMitigasiDto,
   CreatePeralatanDto,
   UpdatePeralatanDto,
+  CreateSafePointDto,
+  UpdateSafePointDto,
 } from './emergency.service';
 import { Public } from '../auth/decorators/public.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -102,5 +104,42 @@ export class EmergencyController {
   @ApiOperation({ summary: '[Admin] Hapus peralatan siaga' })
   deletePeralatan(@Param('id') id: string) {
     return this.emergencyService.deletePeralatan(id);
+  }
+
+  // ─── Safe Points (Titik Aman) ───────────────────────────────────────────────
+
+  @Public()
+  @Get('safe-points')
+  @ApiOperation({ summary: 'Daftar semua titik aman / evakuasi di peta (publik)' })
+  getAllSafePoints() {
+    return this.emergencyService.getAllSafePoints();
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiBearerAuth()
+  @Post('safe-points')
+  @ApiOperation({ summary: '[Admin] Tambah titik aman baru ke peta' })
+  createSafePoint(@Body() dto: CreateSafePointDto, @CurrentUser() user: User) {
+    return this.emergencyService.createSafePoint(dto, user);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiBearerAuth()
+  @Patch('safe-points/:id')
+  @ApiOperation({ summary: '[Admin] Update data titik aman' })
+  updateSafePoint(@Param('id') id: string, @Body() dto: UpdateSafePointDto) {
+    return this.emergencyService.updateSafePoint(id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiBearerAuth()
+  @Delete('safe-points/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '[Admin] Hapus titik aman dari peta' })
+  deleteSafePoint(@Param('id') id: string) {
+    return this.emergencyService.deleteSafePoint(id);
   }
 }

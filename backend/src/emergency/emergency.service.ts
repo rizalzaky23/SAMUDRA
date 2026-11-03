@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MitigasiStep } from './entities/mitigasi-step.entity';
 import { PeralatanSiaga } from './entities/peralatan-siaga.entity';
+import { SafePoint } from './entities/safe-point.entity';
 import { User } from '../users/entities/user.entity';
 
 import { IsString, IsNotEmpty, IsOptional, IsNumber } from 'class-validator';
@@ -132,6 +133,74 @@ export class UpdatePeralatanDto {
   imageUrl?: string;
 }
 
+export class CreateSafePointDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  subtitle?: string;
+
+  @ApiProperty()
+  @IsNumber()
+  @Type(() => Number)
+  latitude: number;
+
+  @ApiProperty()
+  @IsNumber()
+  @Type(() => Number)
+  longitude: number;
+
+  @ApiProperty({ required: false, default: '⛺' })
+  @IsOptional()
+  @IsString()
+  icon?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  capacity?: number;
+}
+
+export class UpdateSafePointDto {
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  subtitle?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  latitude?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  longitude?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  icon?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  capacity?: number;
+}
+
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 @Injectable()
@@ -141,6 +210,8 @@ export class EmergencyService {
     private mitigasiRepo: Repository<MitigasiStep>,
     @InjectRepository(PeralatanSiaga)
     private peralatanRepo: Repository<PeralatanSiaga>,
+    @InjectRepository(SafePoint)
+    private safePointRepo: Repository<SafePoint>,
   ) {}
 
   // Mitigasi
@@ -193,5 +264,75 @@ export class EmergencyService {
     if (!item) throw new NotFoundException('Peralatan tidak ditemukan');
     await this.peralatanRepo.remove(item);
     return { message: 'Peralatan berhasil dihapus' };
+  }
+
+  // ─── Safe Points (Titik Aman) ───────────────────────────────────────────────
+
+  async getAllSafePoints(): Promise<SafePoint[]> {
+    let list = await this.safePointRepo.find({
+      order: { createdAt: 'ASC' },
+    });
+
+    // Inisialisasi titik aman default jika database masih kosong
+    if (list.length === 0) {
+      const initialPoints = [
+        {
+          name: 'Bukit Safe Point A',
+          subtitle: 'Dataran tinggi aman (Yogyakarta)',
+          latitude: -7.780,
+          longitude: 110.360,
+          icon: '⛺',
+          capacity: 500,
+        },
+        {
+          name: 'GOR Siaga Bencana',
+          subtitle: 'Gedung pengungsian resmi (Yogyakarta)',
+          latitude: -7.800,
+          longitude: 110.400,
+          icon: '🏛️',
+          capacity: 1200,
+        },
+        {
+          name: 'Masjid Al-Aman',
+          subtitle: 'Titik kumpul evakuasi warga (Yogyakarta)',
+          latitude: -7.760,
+          longitude: 110.380,
+          icon: '🕌',
+          capacity: 400,
+        },
+      ];
+
+      for (const p of initialPoints) {
+        const item = this.safePointRepo.create(p);
+        await this.safePointRepo.save(item);
+      }
+
+      list = await this.safePointRepo.find({ order: { createdAt: 'ASC' } });
+    }
+
+    return list;
+  }
+
+  async createSafePoint(dto: CreateSafePointDto, author: User): Promise<SafePoint> {
+    const item = this.safePointRepo.create({
+      ...dto,
+      icon: dto.icon?.trim() || '⛺',
+      authorId: author.id,
+    });
+    return this.safePointRepo.save(item);
+  }
+
+  async updateSafePoint(id: string, dto: UpdateSafePointDto): Promise<SafePoint> {
+    const item = await this.safePointRepo.findOne({ where: { id } });
+    if (!item) throw new NotFoundException('Titik aman tidak ditemukan');
+    Object.assign(item, dto);
+    return this.safePointRepo.save(item);
+  }
+
+  async deleteSafePoint(id: string): Promise<{ message: string }> {
+    const item = await this.safePointRepo.findOne({ where: { id } });
+    if (!item) throw new NotFoundException('Titik aman tidak ditemukan');
+    await this.safePointRepo.remove(item);
+    return { message: 'Titik aman berhasil dihapus' };
   }
 }

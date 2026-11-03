@@ -24,6 +24,7 @@
 | `earthquakeProvider` | `earthquake/providers/earthquake_provider.dart` | Data gempa terkini |
 | `homeDangerModeProvider` | `home/screens/home_screen.dart` | `bool` toggle bahaya manual |
 | `notificationsProvider` | `notifications/providers/notifications_provider.dart` | `NotificationsState` (riwayat notifikasi, unreadCount, sync lokal/backend) |
+| `safePointsProvider` | `map/providers/safe_points_provider.dart` | `SafePointsState` (CRUD titik aman peta untuk admin & evakuasi) |
 
 ---
 
