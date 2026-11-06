@@ -754,6 +754,76 @@ class HomeScreen extends ConsumerWidget {
 
         const SizedBox(height: 26),
 
+        // Section: Statistik minggu ini — 1 kartu menyatu (Unified Bar) di bawah Akses cepat
+        enter(Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionTitle(
+              'Statistik minggu ini',
+              trailing: 'Lihat riwayat ›',
+            ),
+            _Pressable(
+              onTap: () => context.go(AppRoutes.history),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFDBEAFE)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.05),
+                      blurRadius: 14,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: IntrinsicHeight(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _buildUnifiedStatItem(
+                          icon: Icons.sensors_rounded,
+                          value: '18',
+                          label: 'Total gempa',
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        color: const Color(0xFFE2E8F0),
+                      ),
+                      Expanded(
+                        child: _buildUnifiedStatItem(
+                          icon: Icons.timeline_rounded,
+                          value: 'M 4.1',
+                          label: 'Rata-rata mag.',
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        color: const Color(0xFFE2E8F0),
+                      ),
+                      Expanded(
+                        child: _buildUnifiedStatItem(
+                          icon: Icons.waves_rounded,
+                          value: '1',
+                          label: 'Potensi tsunami',
+                          valueColor: const Color(0xFF2563EB),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        )),
+
+        const SizedBox(height: 26),
+
         // Section: Cuaca ekstrem — nuansa biru bersih senada
         enter(Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -955,41 +1025,6 @@ class HomeScreen extends ConsumerWidget {
               title: 'Peralatan siaga bencana',
               subtitle: 'Daftar tas siaga darurat & perlengkapan penting',
               onTap: () => showPeralatanBottomSheet(context, ref),
-            ),
-          ],
-        )),
-
-        const SizedBox(height: 26),
-
-        // Section: Statistik minggu ini
-        enter(Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSectionTitle('Statistik minggu ini'),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                    value: '18',
-                    label: 'Total gempa',
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildStatCard(
-                    value: 'M 4.1',
-                    label: 'Rata-rata mag.',
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildStatCard(
-                    value: '1',
-                    label: 'Potensi tsunami',
-                    valueColor: const Color(0xFF1D4ED8), // Blue emphasis
-                  ),
-                ),
-              ],
             ),
           ],
         )),
@@ -1301,41 +1336,49 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  // ── Stat Card (Statistik minggu ini) ──
-  Widget _buildStatCard({
+  // ── Unified Stat Item (Statistik minggu ini - 1 Kartu Menyatu) ──
+  Widget _buildUnifiedStatItem({
+    required IconData icon,
     required String value,
     required String label,
     Color? valueColor,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              icon,
+              size: 17,
+              color: const Color(0xFF2563EB),
+            ),
+          ),
+          const SizedBox(height: 8),
           Text(
             value,
             style: GoogleFonts.inter(
-              fontSize: 19,
+              fontSize: 18,
               fontWeight: FontWeight.w800,
               color: valueColor ?? const Color(0xFF0F172A),
+              letterSpacing: -0.3,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           Text(
             label,
             textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.inter(
-              fontSize: 11,
+              fontSize: 11.5,
               fontWeight: FontWeight.w500,
               color: const Color(0xFF64748B),
             ),
