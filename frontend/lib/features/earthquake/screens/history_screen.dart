@@ -109,13 +109,14 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           children: [
             // ── Title ──
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 14),
               child: Text(
                 'Riwayat gempa',
                 style: GoogleFonts.inter(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary,
+                  letterSpacing: -0.3,
                 ),
               ),
             ),
@@ -126,22 +127,54 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.035),
+                      blurRadius: 12,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
                 child: TextField(
                   controller: _searchCtrl,
                   style: GoogleFonts.inter(
-                      fontSize: 14, color: AppColors.textPrimary),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textPrimary,
+                  ),
                   decoration: InputDecoration(
-                    hintText: 'Cari wilayah atau tanggal',
+                    hintText: 'Cari wilayah atau tanggal...',
                     hintStyle: GoogleFonts.inter(
-                        fontSize: 14, color: AppColors.textMuted),
+                      fontSize: 13.5,
+                      color: const Color(0xFF94A3B8),
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.search_rounded,
+                      size: 20,
+                      color: Color(0xFF94A3B8),
+                    ),
+                    suffixIcon: _searchCtrl.text.isNotEmpty
+                        ? IconButton(
+                            onPressed: () {
+                              _searchCtrl.clear();
+                              setState(() {});
+                            },
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              size: 18,
+                              color: Color(0xFF94A3B8),
+                            ),
+                          )
+                        : null,
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
+                      horizontal: 16,
+                      vertical: 13,
+                    ),
                   ),
                   onChanged: (_) => setState(() {}),
                 ),
@@ -152,7 +185,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
             // ── Filter Chips ──
             SizedBox(
-              height: 36,
+              height: 38,
               child: ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 scrollDirection: Axis.horizontal,
@@ -163,28 +196,41 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                   final isActive = _selectedFilter == f;
                   return GestureDetector(
                     onTap: () => setState(() => _selectedFilter = f),
-                    child: Container(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOut,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: isActive
-                            ? AppColors.primary
-                            : Colors.white,
-                        borderRadius: BorderRadius.circular(50),
+                        color: isActive ? AppColors.primary : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: isActive
                               ? AppColors.primary
-                              : AppColors.border,
+                              : const Color(0xFFE2E8F0),
                         ),
+                        boxShadow: isActive
+                            ? [
+                                BoxShadow(
+                                  color:
+                                      AppColors.primary.withValues(alpha: 0.22),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ]
+                            : null,
                       ),
-                      child: Text(
-                        f,
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: isActive
-                              ? Colors.white
-                              : AppColors.textSecondary,
+                      child: Center(
+                        child: Text(
+                          f,
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight:
+                                isActive ? FontWeight.w600 : FontWeight.w500,
+                            color: isActive
+                                ? Colors.white
+                                : const Color(0xFF475569),
+                          ),
                         ),
                       ),
                     ),
@@ -257,7 +303,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     final query = _searchCtrl.text.trim().toLowerCase();
     if (query.isNotEmpty) {
       list = list
-          .where((e) => e.location.toLowerCase().contains(query))
+          .where((e) =>
+              e.location.toLowerCase().contains(query) ||
+              e.timeAgo.toLowerCase().contains(query))
           .toList();
     }
 
@@ -281,11 +329,18 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     final statusColor = _statusColor(eq.status);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFEAEFF5)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -294,8 +349,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: magColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12),
+              color: magColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Center(
               child: Text(
@@ -317,12 +372,12 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                 Text(
                   eq.location,
                   style: GoogleFonts.inter(
-                    fontSize: 15,
+                    fontSize: 14.5,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 Text(
                   '${eq.depth} · ${eq.timeAgo}',
                   style: GoogleFonts.inter(
@@ -333,12 +388,13 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               ],
             ),
           ),
+          const SizedBox(width: 8),
           // Status badge
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
               color: statusColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(50),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
               eq.status,
@@ -358,7 +414,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     if (mag >= 7.0) return AppColors.danger;
     if (mag >= 5.0) return AppColors.warning;
     if (mag >= 4.0) return AppColors.safe;
-    return const Color(0xFF6EE7B7); // light green
+    return const Color(0xFF10B981); // emerald-500 agar angka < 4.0 tetap tajam terbaca
   }
 
   Color _statusColor(String status) {
