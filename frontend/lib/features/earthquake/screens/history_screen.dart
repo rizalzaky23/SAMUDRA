@@ -145,6 +145,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     color: AppColors.textPrimary,
                   ),
                   decoration: InputDecoration(
+                    filled: false,
                     hintText: 'Cari wilayah atau tanggal...',
                     hintStyle: GoogleFonts.inter(
                       fontSize: 13.5,
@@ -282,7 +283,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                           },
                           color: AppColors.primary,
                           child: ListView.separated(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
                             itemCount: filtered.length,
                             separatorBuilder: (_, __) =>
                                 const SizedBox(height: 10),
