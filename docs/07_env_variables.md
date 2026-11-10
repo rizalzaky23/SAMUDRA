@@ -28,7 +28,14 @@ GOOGLE_CLIENT_SECRET=GOCSPX-xxxx
 GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
 GOOGLE_AUTH_SUCCESS_REDIRECT=https://admin.samudra.buzz/auth/callback
 
-# ─── AWS S3 (media artikel) ────────────────────────────────────────────────────
+# ─── Cloudflare R2 (Media / Object Storage) ──────────────────────────────────
+CF_R2_ACCOUNT_ID=
+CF_R2_ACCESS_KEY_ID=
+CF_R2_SECRET_ACCESS_KEY=
+CF_R2_BUCKET_NAME=samudra
+CF_R2_PUBLIC_URL=https://cdn.samudra.buzz
+
+# ─── AWS S3 (opsional legacy) ────────────────────────────────────────────────
 AWS_ACCESS_KEY_ID=
 AWS_SECRET_ACCESS_KEY=
 AWS_REGION=ap-southeast-1
