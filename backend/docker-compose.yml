@@ -4,15 +4,15 @@ services:
     container_name: samudra_db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: samudra_db
-      POSTGRES_USER: samudra_user
-      POSTGRES_PASSWORD: samudra_password_prod
+      POSTGRES_DB: ${DB_NAME:-samudra_db}
+      POSTGRES_USER: ${DB_USER:-samudra_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
       - '127.0.0.1:5433:5432'
     volumes:
       - samudra_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U samudra_user -d samudra_db']
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER:-samudra_user} -d $${POSTGRES_DB:-samudra_db}']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -25,35 +25,37 @@ services:
     restart: unless-stopped
     ports:
       - '0.0.0.0:3005:3000'
+    env_file:
+      - .env
     environment:
-      NODE_ENV: production
-      PORT: 3000
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${PORT:-3000}
       DB_HOST: samudra-db
       DB_PORT: 5432
-      DB_NAME: samudra_db
-      DB_USER: samudra_user
-      DB_PASSWORD: samudra_password_prod
-      DB_SYNC: 'true'
-      JWT_SECRET: samudra_jwt_super_secret_key_2026_prod
-      JWT_EXPIRES_IN: 15m
-      JWT_REFRESH_SECRET: samudra_refresh_super_secret_key_2026_prod
-      JWT_REFRESH_EXPIRES_IN: 7d
-      BMKG_API_BASE_URL: https://data.bmkg.go.id/DataMKG/TEWS
-      BMKG_POLLING_INTERVAL_MS: 60000
-      GOOGLE_CLIENT_ID: 772157858952-jtuupdldo13hsjghk1rc5al957qr1ako.apps.googleusercontent.com
-      GOOGLE_CLIENT_SECRET: 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
-      GOOGLE_CALLBACK_URL: https://samudra.rizalzaky.cloud/api/auth/google/callback
-      GOOGLE_AUTH_SUCCESS_REDIRECT: https://admin.samudra.buzz/auth/callback
+      DB_NAME: ${DB_NAME:-samudra_db}
+      DB_USER: ${DB_USER:-samudra_user}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_SYNC: ${DB_SYNC:-true}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      BMKG_API_BASE_URL: ${BMKG_API_BASE_URL:-https://data.bmkg.go.id/DataMKG/TEWS}
+      BMKG_POLLING_INTERVAL_MS: ${BMKG_POLLING_INTERVAL_MS:-60000}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL}
+      GOOGLE_AUTH_SUCCESS_REDIRECT: ${GOOGLE_AUTH_SUCCESS_REDIRECT:-https://admin.samudra.buzz/auth/callback}
       # Cloudflare R2
-      CF_R2_ACCOUNT_ID: '2a4386776eeae5856303b62fddcee5a4'
-      CF_R2_ACCESS_KEY_ID: '427bbe879130d5a3dd3b6925ca6b020d'
-      CF_R2_SECRET_ACCESS_KEY: 'e8052b2c6bb43bfbb3495918d55b11f3ea8a80824ca2b489cca100f6ceea2b7a'
-      CF_R2_BUCKET_NAME: samudra
-      CF_R2_PUBLIC_URL: 'https://cdn.samudra.buzz'
+      CF_R2_ACCOUNT_ID: ${CF_R2_ACCOUNT_ID}
+      CF_R2_ACCESS_KEY_ID: ${CF_R2_ACCESS_KEY_ID}
+      CF_R2_SECRET_ACCESS_KEY: ${CF_R2_SECRET_ACCESS_KEY}
+      CF_R2_BUCKET_NAME: ${CF_R2_BUCKET_NAME:-samudra}
+      CF_R2_PUBLIC_URL: ${CF_R2_PUBLIC_URL:-https://cdn.samudra.buzz}
       # Firebase FCM
-      FIREBASE_PROJECT_ID: 'samudra-a9529'
-      FIREBASE_CLIENT_EMAIL: 'firebase-adminsdk-fbsvc@samudra-a9529.iam.gserviceaccount.com'
-      FIREBASE_CREDENTIALS_PATH: '/app/firebase-service-account.json'
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL}
+      FIREBASE_CREDENTIALS_PATH: ${FIREBASE_CREDENTIALS_PATH:-/app/firebase-service-account.json}
     volumes:
       - ./firebase-service-account.json:/app/firebase-service-account.json:ro
     depends_on:
