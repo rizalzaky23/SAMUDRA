@@ -36,7 +36,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   Future<void> _navigate() async {
-    await Future.delayed(const Duration(milliseconds: 2500));
+    // Tunggu animasi logo selesai (1200ms) lalu langsung navigasi
+    await Future.delayed(const Duration(milliseconds: 1200));
     if (!mounted) return;
 
     final auth = ref.read(authStateProvider);

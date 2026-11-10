@@ -9,10 +9,30 @@ class EmergencyScreen extends ConsumerWidget {
   const EmergencyScreen({super.key});
 
   static const _services = [
-    _Contact(name: 'BPBD hotline', subtitle: 'Penanggulangan bencana', phone: '119'),
-    _Contact(name: 'Tim SAR', subtitle: 'Pencarian dan pertolongan', phone: '115'),
-    _Contact(name: 'Kepolisian', subtitle: 'Layanan darurat 110', phone: '110'),
-    _Contact(name: 'Ambulans', subtitle: 'Layanan medis darurat', phone: '118'),
+    _Contact(
+      name: 'BPBD hotline',
+      subtitle: 'Penanggulangan bencana',
+      phone: '119',
+      icon: Icons.support_agent_rounded,
+    ),
+    _Contact(
+      name: 'Tim SAR',
+      subtitle: 'Pencarian dan pertolongan',
+      phone: '115',
+      icon: Icons.health_and_safety_rounded,
+    ),
+    _Contact(
+      name: 'Kepolisian',
+      subtitle: 'Layanan darurat 110',
+      phone: '110',
+      icon: Icons.local_police_rounded,
+    ),
+    _Contact(
+      name: 'Ambulans',
+      subtitle: 'Layanan medis darurat',
+      phone: '118',
+      icon: Icons.medical_services_rounded,
+    ),
   ];
 
   @override
@@ -172,13 +192,18 @@ class EmergencyScreen extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
-          // Icon placeholder (light blue square)
+          // Service icon (light blue rounded square)
           Container(
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: const Color(0xFFDBEAFE),
-              borderRadius: BorderRadius.circular(12),
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              contact.icon,
+              color: const Color(0xFF2563EB),
+              size: 24,
             ),
           ),
           const SizedBox(width: 14),
@@ -326,5 +351,11 @@ class _Contact {
   final String name;
   final String subtitle;
   final String phone;
-  const _Contact({required this.name, required this.subtitle, required this.phone});
+  final IconData icon;
+  const _Contact({
+    required this.name,
+    required this.subtitle,
+    required this.phone,
+    required this.icon,
+  });
 }

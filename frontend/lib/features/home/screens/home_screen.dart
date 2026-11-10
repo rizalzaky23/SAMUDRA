@@ -664,340 +664,421 @@ class HomeScreen extends ConsumerWidget {
   }
 
   // ── Layar Kanan: Body Content (Status Normal) ──
-  Widget _buildNormalContent(BuildContext context, WidgetRef ref) {
-    final articlesAsync = ref.watch(articlesProvider);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Section: Akses cepat
-        Text(
-          'Akses cepat',
-          style: GoogleFonts.inter(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF64748B),
-          ),
-        ),
-        const SizedBox(height: 10),
-
-        // 4 kotak kecil berisi ikon + label
-        Row(
-          children: [
-            Expanded(
-              child: _buildQuickActionItem(
-                icon: Icons.map_outlined,
-                label: 'Peta live',
-                onTap: () => context.go(AppRoutes.map),
-              ),
+  Widget _buildSectionTitle(String title, {String? trailing}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.inter(
+              fontSize: 15.5,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF0F172A),
+              letterSpacing: -0.2,
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildQuickActionItem(
-                icon: Icons.alt_route_rounded,
-                label: 'Evakuasi',
-                onTap: () => context.go(AppRoutes.evacuation),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildQuickActionItem(
-                icon: Icons.history_rounded,
-                label: 'Riwayat',
-                onTap: () => context.go(AppRoutes.history),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildQuickActionItem(
-                icon: Icons.phone_outlined,
-                label: 'Darurat',
-                onTap: () => context.go(AppRoutes.emergency),
-              ),
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 20),
-
-        // Section: Cuaca ekstrem
-        Text(
-          'Cuaca ekstrem',
-          style: GoogleFonts.inter(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF64748B),
           ),
-        ),
-        const SizedBox(height: 10),
-
-        // Card cuaca ekstrem
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 12,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFEFF6FF),
-                  shape: BoxShape.circle,
-                ),
-                child: const Center(
-                  child: Icon(
-                    Icons.cloud_outlined,
-                    color: Color(0xFF2563EB),
-                    size: 22,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Waspada gelombang tinggi',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF0F172A),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Pesisir selatan Jawa',
-                      style: GoogleFonts.inter(
-                        fontSize: 12.5,
-                        color: const Color(0xFF64748B),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
-        // Section: Titik evakuasi terdekat
-        Text(
-          'Titik evakuasi terdekat',
-          style: GoogleFonts.inter(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF64748B),
-          ),
-        ),
-        const SizedBox(height: 10),
-
-        // Card titik evakuasi terdekat dengan tombol bulat biru di kanan
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 12,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFDCFCE7),
-                  shape: BoxShape.circle,
-                ),
-                child: const Center(
-                  child: Icon(
-                    Icons.alt_route_rounded,
-                    color: Color(0xFF16A34A),
-                    size: 22,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Bukit Safe Point A',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF0F172A),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '1.2 km · jalan kaki 15 menit',
-                      style: GoogleFonts.inter(
-                        fontSize: 12.5,
-                        color: const Color(0xFF64748B),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              GestureDetector(
-                onTap: () => context.go(AppRoutes.map),
-                child: Container(
-                  width: 38,
-                  height: 38,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF1D4ED8),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.alt_route_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
-        // Section: Panduan Kesiapsiagaan Bencana
-        Text(
-          'Kesiapsiagaan bencana',
-          style: GoogleFonts.inter(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF64748B),
-          ),
-        ),
-        const SizedBox(height: 10),
-
-        _buildGuidanceCard(
-          icon: Icons.directions_run_rounded,
-          iconBg: const Color(0xFFDCFCE7),
-          iconColor: const Color(0xFF16A34A),
-          title: 'Langkah evakuasi mandiri',
-          subtitle: 'Panduan mitigasi & tindakan saat gempa/tsunami',
-          onTap: () => showMitigasiBottomSheet(context, ref),
-        ),
-        const SizedBox(height: 10),
-        _buildGuidanceCard(
-          icon: Icons.inventory_2_rounded,
-          iconBg: const Color(0xFFFEF3C7),
-          iconColor: const Color(0xFFD97706),
-          title: 'Peralatan siaga bencana',
-          subtitle: 'Daftar tas siaga darurat & perlengkapan penting',
-          onTap: () => showPeralatanBottomSheet(context, ref),
-        ),
-
-        const SizedBox(height: 20),
-
-        // Section: Statistik minggu ini (padding vertikal lebih lega)
-        Text(
-          'Statistik minggu ini',
-          style: GoogleFonts.inter(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF64748B),
-          ),
-        ),
-        const SizedBox(height: 10),
-
-        // 3 Card Angka
-        Row(
-          children: [
-            Expanded(
-              child: _buildStatCard(
-                value: '18',
-                label: 'Total gempa',
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildStatCard(
-                value: 'M 4.1',
-                label: 'Rata-rata mag.',
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildStatCard(
-                value: '1',
-                label: 'Potensi tsunami',
-                valueColor: const Color(0xFF1D4ED8), // Blue emphasis
-              ),
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 20),
-
-        // Section: Artikel edukasi (horizontal scroll hint)
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
+          const Spacer(),
+          if (trailing != null)
             Text(
-              'Artikel edukasi',
+              trailing,
               style: GoogleFonts.inter(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
                 color: const Color(0xFF64748B),
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 10),
+        ],
+      ),
+    );
+  }
 
-        articlesAsync.when(
-          data: (articles) {
-            final items = articles.isNotEmpty ? articles : fallbackArticles;
-            return SizedBox(
-              height: 125,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                clipBehavior: Clip.none,
-                itemCount: items.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
-                itemBuilder: (ctx, i) => _buildArticleCard(context, items[i]),
-              ),
-            );
-          },
-          loading: () => const SizedBox(
-            height: 125,
-            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-          ),
-          error: (_, __) => SizedBox(
-            height: 125,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              clipBehavior: Clip.none,
-              itemCount: fallbackArticles.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (ctx, i) => _buildArticleCard(context, fallbackArticles[i]),
+  Widget _buildNormalContent(BuildContext context, WidgetRef ref) {
+    final articlesAsync = ref.watch(articlesProvider);
+    var order = 0;
+    Widget enter(Widget child) => _EntranceFade(index: order++, child: child);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section: Akses cepat — senada dengan tema biru SAMUDRA
+        enter(Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionTitle('Akses cepat'),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildQuickActionItem(
+                    icon: Icons.map_rounded,
+                    label: 'Peta live',
+                    color: const Color(0xFF2563EB),
+                    tint: const Color(0xFFEFF6FF),
+                    onTap: () => context.go(AppRoutes.map),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildQuickActionItem(
+                    icon: Icons.alt_route_rounded,
+                    label: 'Evakuasi',
+                    color: const Color(0xFF2563EB),
+                    tint: const Color(0xFFEFF6FF),
+                    onTap: () => context.go(AppRoutes.evacuation),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildQuickActionItem(
+                    icon: Icons.history_rounded,
+                    label: 'Riwayat',
+                    color: const Color(0xFF2563EB),
+                    tint: const Color(0xFFEFF6FF),
+                    onTap: () => context.go(AppRoutes.history),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildQuickActionItem(
+                    icon: Icons.phone_in_talk_rounded,
+                    label: 'Darurat',
+                    color: const Color(0xFF2563EB),
+                    tint: const Color(0xFFEFF6FF),
+                    onTap: () => context.go(AppRoutes.emergency),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ),
+          ],
+        )),
+
+        const SizedBox(height: 26),
+
+        // Section: Statistik minggu ini — 1 kartu menyatu (Unified Bar) di bawah Akses cepat
+        enter(Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionTitle(
+              'Statistik minggu ini',
+              trailing: 'Lihat riwayat ›',
+            ),
+            _Pressable(
+              onTap: () => context.go(AppRoutes.history),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFDBEAFE)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.05),
+                      blurRadius: 14,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: IntrinsicHeight(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _buildUnifiedStatItem(
+                          icon: Icons.sensors_rounded,
+                          value: '18',
+                          label: 'Total gempa',
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        color: const Color(0xFFE2E8F0),
+                      ),
+                      Expanded(
+                        child: _buildUnifiedStatItem(
+                          icon: Icons.timeline_rounded,
+                          value: 'M 4.1',
+                          label: 'Rata-rata mag.',
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        color: const Color(0xFFE2E8F0),
+                      ),
+                      Expanded(
+                        child: _buildUnifiedStatItem(
+                          icon: Icons.waves_rounded,
+                          value: '1',
+                          label: 'Potensi tsunami',
+                          valueColor: const Color(0xFF2563EB),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        )),
+
+        const SizedBox(height: 26),
+
+        // Section: Cuaca ekstrem — nuansa biru bersih senada
+        enter(Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionTitle('Cuaca ekstrem'),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFEFF6FF), Color(0xFFDBEAFE)],
+                ),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFFBFDBFE)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2563EB),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(
+                      Icons.waves_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Waspada gelombang tinggi',
+                          style: GoogleFonts.inter(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF1E3A8A),
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'Pesisir selatan Jawa',
+                          style: GoogleFonts.inter(
+                            fontSize: 12.5,
+                            color: const Color(0xFF1E40AF),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Waspada',
+                      style: GoogleFonts.inter(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1D4ED8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        )),
+
+        const SizedBox(height: 26),
+
+        // Section: Titik evakuasi terdekat — senada dengan aksen biru utama
+        enter(Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionTitle('Titik evakuasi terdekat'),
+            _Pressable(
+              onTap: () => context.go(AppRoutes.map),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFDBEAFE)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.06),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.landscape_rounded,
+                        color: Color(0xFF2563EB),
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Bukit Safe Point A',
+                            style: GoogleFonts.inter(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF0F172A),
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              const Icon(Icons.directions_walk_rounded,
+                                  size: 14, color: Color(0xFF2563EB)),
+                              const SizedBox(width: 4),
+                              Text(
+                                '1.2 km · 15 menit',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w500,
+                                  color: const Color(0xFF475569),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2563EB),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.navigation_rounded,
+                              color: Colors.white, size: 16),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Rute',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        )),
+
+        const SizedBox(height: 26),
+
+        // Section: Panduan Kesiapsiagaan Bencana
+        enter(Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionTitle('Kesiapsiagaan bencana'),
+            _buildGuidanceCard(
+              icon: Icons.directions_run_rounded,
+              iconBg: const Color(0xFFEFF6FF),
+              iconColor: const Color(0xFF2563EB),
+              title: 'Langkah evakuasi mandiri',
+              subtitle: 'Panduan mitigasi & tindakan saat gempa/tsunami',
+              onTap: () => showMitigasiBottomSheet(context, ref),
+            ),
+            const SizedBox(height: 10),
+            _buildGuidanceCard(
+              icon: Icons.backpack_rounded,
+              iconBg: const Color(0xFFEFF6FF),
+              iconColor: const Color(0xFF2563EB),
+              title: 'Peralatan siaga bencana',
+              subtitle: 'Daftar tas siaga darurat & perlengkapan penting',
+              onTap: () => showPeralatanBottomSheet(context, ref),
+            ),
+          ],
+        )),
+
+        const SizedBox(height: 28),
+
+        // Section: Artikel edukasi — kartu besar dengan gambar sampul penuh
+        enter(Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionTitle(
+              'Artikel edukasi',
+              trailing: articlesAsync.maybeWhen(
+                data: (a) => a.length > 1 ? 'Geser untuk lainnya' : null,
+                orElse: () => null,
+              ),
+            ),
+            articlesAsync.when(
+              data: (articles) {
+                final items =
+                    articles.isNotEmpty ? articles : fallbackArticles;
+                return _buildArticleList(context, items);
+              },
+              loading: () => SizedBox(
+                height: _kArticleCardHeight,
+                child: Center(
+                  child: Text(
+                    'Memuat artikel edukasi...',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: const Color(0xFF64748B),
+                    ),
+                  ),
+                ),
+              ),
+              error: (_, __) => _buildArticleList(context, fallbackArticles),
+            ),
+          ],
+        )),
       ],
+    );
+  }
+
+  Widget _buildArticleList(BuildContext context, List<ArticleModel> items) {
+    return SizedBox(
+      height: _kArticleCardHeight,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        physics: const BouncingScrollPhysics(),
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 14),
+        itemBuilder: (ctx, i) => _buildArticleCard(context, items[i]),
+      ),
     );
   }
 
@@ -1132,12 +1213,14 @@ class HomeScreen extends ConsumerWidget {
   Widget _buildQuickActionItem({
     required IconData icon,
     required String label,
+    required Color color,
+    required Color tint,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
+    return _Pressable(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
@@ -1151,17 +1234,21 @@ class HomeScreen extends ConsumerWidget {
         ),
         child: Column(
           children: [
-            Icon(
-              icon,
-              color: const Color(0xFF2563EB),
-              size: 22,
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: tint,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: color, size: 22),
             ),
             const SizedBox(height: 8),
             Text(
               label,
               style: GoogleFonts.inter(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w500,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
                 color: const Color(0xFF0F172A),
               ),
             ),
@@ -1180,11 +1267,10 @@ class HomeScreen extends ConsumerWidget {
     required String subtitle,
     required VoidCallback onTap,
   }) {
-    return InkWell(
+    return _Pressable(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
@@ -1199,21 +1285,15 @@ class HomeScreen extends ConsumerWidget {
         child: Row(
           children: [
             Container(
-              width: 44,
-              height: 44,
+              width: 46,
+              height: 46,
               decoration: BoxDecoration(
                 color: iconBg,
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Center(
-                child: Icon(
-                  icon,
-                  color: iconColor,
-                  size: 22,
-                ),
-              ),
+              child: Icon(icon, color: iconColor, size: 24),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1221,12 +1301,12 @@ class HomeScreen extends ConsumerWidget {
                   Text(
                     title,
                     style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
                       color: const Color(0xFF0F172A),
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
                     subtitle,
                     style: GoogleFonts.inter(
@@ -1237,10 +1317,18 @@ class HomeScreen extends ConsumerWidget {
                 ],
               ),
             ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: Color(0xFF94A3B8),
-              size: 22,
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: iconBg,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.chevron_right_rounded,
+                color: iconColor,
+                size: 20,
+              ),
             ),
           ],
         ),
@@ -1248,41 +1336,49 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  // ── Stat Card (Statistik minggu ini) ──
-  Widget _buildStatCard({
+  // ── Unified Stat Item (Statistik minggu ini - 1 Kartu Menyatu) ──
+  Widget _buildUnifiedStatItem({
+    required IconData icon,
     required String value,
     required String label,
     Color? valueColor,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              icon,
+              size: 17,
+              color: const Color(0xFF2563EB),
+            ),
+          ),
+          const SizedBox(height: 8),
           Text(
             value,
             style: GoogleFonts.inter(
-              fontSize: 19,
+              fontSize: 18,
               fontWeight: FontWeight.w800,
               color: valueColor ?? const Color(0xFF0F172A),
+              letterSpacing: -0.3,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           Text(
             label,
             textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.inter(
-              fontSize: 11,
+              fontSize: 11.5,
               fontWeight: FontWeight.w500,
               color: const Color(0xFF64748B),
             ),
@@ -1293,102 +1389,152 @@ class HomeScreen extends ConsumerWidget {
   }
 
   // ── Article Card ──
+  // Kartu besar: gambar sampul memenuhi bagian atas (16:10) agar foto terlihat jelas.
   Widget _buildArticleCard(BuildContext context, ArticleModel article) {
-    final hasImage = article.coverImageUrl != null && article.coverImageUrl!.isNotEmpty;
+    final hasImage =
+        article.coverImageUrl != null && article.coverImageUrl!.isNotEmpty;
+    const catColor = Color(0xFF2563EB);
 
-    return GestureDetector(
+    Widget fallbackCover() => Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [catColor, Color.lerp(catColor, Colors.black, 0.35)!],
+            ),
+          ),
+          child: Center(
+            child: Icon(
+              Icons.menu_book_rounded,
+              size: 44,
+              color: Colors.white.withValues(alpha: 0.85),
+            ),
+          ),
+        );
+
+    return _Pressable(
       onTap: () => ArticleDetailSheet.show(context, article),
       child: Container(
-        width: 210,
-        padding: const EdgeInsets.all(12),
+        width: _kArticleCardWidth,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 12,
-              offset: const Offset(0, 3),
+              color: const Color(0xFF0F172A).withValues(alpha: 0.08),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
+        clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (hasImage) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: CachedNetworkImage(
-                  imageUrl: article.coverImageUrl!,
-                  height: 150,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  placeholder: (_, __) => Container(
-                    height: 150,
-                    color: const Color(0xFFF1F5F9),
-                  ),
-                  errorWidget: (_, __, ___) => const SizedBox.shrink(),
-                ),
-              ),
-              const SizedBox(height: 6),
-            ] else ...[
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  article.categoryLabel,
-                  style: GoogleFonts.inter(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF2563EB),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
-            ],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            SizedBox(
+              height: _kArticleImageHeight,
+              width: double.infinity,
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  Text(
-                    article.title,
-                    maxLines: hasImage ? 2 : 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF0F172A),
-                      height: 1.25,
+                  if (hasImage)
+                    CachedNetworkImage(
+                      imageUrl: article.coverImageUrl!,
+                      fit: BoxFit.cover,
+                      fadeInDuration: const Duration(milliseconds: 300),
+                      placeholder: (_, __) =>
+                          Container(color: const Color(0xFFE2E8F0)),
+                      errorWidget: (_, __, ___) => fallbackCover(),
+                    )
+                  else
+                    fallbackCover(),
+                  // Gradasi bawah agar chip & tepi gambar tetap terbaca
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Colors.transparent, Color(0x59000000)],
+                        stops: [0.55, 1.0],
+                      ),
                     ),
                   ),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.access_time_rounded,
-                        size: 12,
-                        color: Color(0xFF94A3B8),
+                  Positioned(
+                    left: 12,
+                    top: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        article.readTime,
+                      child: Text(
+                        article.categoryLabel,
                         style: GoogleFonts.inter(
-                          fontSize: 10.5,
-                          color: const Color(0xFF94A3B8),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: catColor,
                         ),
                       ),
-                      const Spacer(),
-                      const Icon(
-                        Icons.arrow_forward_ios_rounded,
-                        size: 10,
-                        color: Color(0xFF94A3B8),
-                      ),
-                    ],
+                    ),
                   ),
                 ],
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      article.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF0F172A),
+                        height: 1.3,
+                      ),
+                    ),
+                    const Spacer(),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.schedule_rounded,
+                          size: 14,
+                          color: Color(0xFF64748B),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          article.readTime,
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF64748B),
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          'Baca',
+                          style: GoogleFonts.inter(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: catColor,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          size: 18,
+                          color: catColor,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -1491,4 +1637,101 @@ class _Embossed3DButtonPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_Embossed3DButtonPainter old) => false;
+}
+
+const double _kArticleCardWidth = 264;
+const double _kArticleImageHeight = 165;
+const double _kArticleCardHeight = 265;
+
+// ── Entrance animation ──
+// Fade + geser naik sekali saat Beranda pertama tampil, bertahap per section
+// agar mata mengikuti urutan konten dari atas ke bawah. Tidak berulang.
+class _EntranceFade extends StatefulWidget {
+  final int index;
+  final Widget child;
+
+  const _EntranceFade({required this.index, required this.child});
+
+  @override
+  State<_EntranceFade> createState() => _EntranceFadeState();
+}
+
+class _EntranceFadeState extends State<_EntranceFade>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 450),
+  );
+  late final Animation<double> _curve =
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(Duration(milliseconds: 70 * widget.index), () {
+      if (mounted) _controller.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.of(context).disableAnimations) return widget.child;
+    return AnimatedBuilder(
+      animation: _curve,
+      child: widget.child,
+      builder: (context, child) => Opacity(
+        opacity: _curve.value,
+        child: Transform.translate(
+          offset: Offset(0, 18 * (1 - _curve.value)),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Press feedback ──
+// Mengecil sedikit saat ditekan sehingga kartu terasa responsif disentuh.
+class _Pressable extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+
+  const _Pressable({required this.child, required this.onTap});
+
+  @override
+  State<_Pressable> createState() => _PressableState();
+}
+
+class _PressableState extends State<_Pressable> {
+  bool _pressed = false;
+
+  void _set(bool v) {
+    if (_pressed != v) setState(() => _pressed = v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => _set(true),
+        onTapUp: (_) => _set(false),
+        onTapCancel: () => _set(false),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _pressed ? 0.96 : 1.0,
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOut,
+          child: widget.child,
+        ),
+      ),
+    );
+  }
 }

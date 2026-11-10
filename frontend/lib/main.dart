@@ -24,12 +24,11 @@ void main() async {
     debugPrint('Note: .env load skipped or not found: $e');
   }
 
-  // Initialize Push Notification Service (FCM & Local Notifications)
-  try {
-    await NotificationService().init();
-  } catch (e) {
+  // Initialize Push Notification Service (FCM & Local Notifications) in background
+  // Tidak di-await agar tidak menghambat startup tampilan aplikasi (runApp)
+  NotificationService().init().catchError((e) {
     debugPrint('Notification service initialization note: $e');
-  }
+  });
 
   // Lock to portrait
   try {

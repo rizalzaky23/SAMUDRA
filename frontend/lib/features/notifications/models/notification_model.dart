@@ -54,8 +54,10 @@ class NotificationModel {
     }
 
     // Ekstrak title dan body jika disimpan dalam bentuk message (backward compatibility)
-    String rawTitle = json['title'] ?? '';
-    String rawBody = json['body'] ?? '';
+    String rawTitle = (json['title'] ?? '').toString().trim();
+    String rawBody = (json['body'] ?? '').toString().trim();
+    String rawType = (json['type'] ?? 'info').toString().trim();
+
     if (rawTitle.isEmpty && json['message'] != null) {
       final msg = json['message'].toString();
       if (msg.contains(': ')) {
@@ -68,17 +70,52 @@ class NotificationModel {
       }
     }
 
+    // Bersihkan log teknis FCM ("Topic" / "MessageId: projects/...") menjadi teks informatif
+    final eqMap = json['earthquake'] is Map<String, dynamic>
+        ? json['earthquake'] as Map<String, dynamic>
+        : null;
+
+    if (rawTitle.toLowerCase() == 'topic' || rawBody.contains('MessageId:')) {
+      final combined = '$rawTitle $rawBody $rawType'.toLowerCase();
+      if (eqMap != null && eqMap['region'] != null) {
+        final mag = eqMap['magnitude'] ?? '';
+        final reg = eqMap['region'] ?? 'Indonesia';
+        final depth = eqMap['depthKm'] ?? '10';
+        final isTsu = eqMap['potentialTsunami'] == true;
+        rawTitle = isTsu
+            ? 'Peringatan Tsunami (M $mag)'
+            : 'Info Gempa Terkini (M $mag)';
+        rawBody = '$reg · Kedalaman $depth km';
+        rawType = isTsu ? 'tsunami_alert' : 'earthquake';
+      } else if (combined.contains('tsunami')) {
+        rawTitle = 'Peringatan Dini Tsunami';
+        rawBody = 'Pemantauan BMKG mendeteksi peringatan tsunami. Tetap waspada.';
+        rawType = 'tsunami_alert';
+      } else if (combined.contains('earthquake') || combined.contains('gempa')) {
+        rawTitle = 'Pembaruan Aktivitas Gempa';
+        rawBody = 'Sensor BMKG mencatat aktivitas gempa bumi terbaru di Indonesia.';
+        rawType = 'earthquake';
+      } else if (combined.contains('article')) {
+        rawTitle = 'Artikel Edukasi Terbaru';
+        rawBody = 'Panduan baru kesiapsiagaan & mitigasi bencana telah tersedia.';
+        rawType = 'new_article';
+      } else {
+        rawTitle = 'Informasi Kebencanaan';
+        rawBody = 'Pembaruan status sistem peringatan dini SAMUDRA.';
+      }
+    }
+
     return NotificationModel(
       id: json['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
       title: rawTitle.isNotEmpty ? rawTitle : 'Peringatan SAMUDRA',
       body: rawBody.isNotEmpty ? rawBody : 'Pemberitahuan informasi kebencanaan',
-      type: json['type']?.toString() ?? 'info',
+      type: rawType.isNotEmpty ? rawType : 'info',
       sentAt: parsedDate,
       isRead: json['isRead'] == true,
       data: json['payloadData'] != null && json['payloadData'] is Map<String, dynamic>
           ? json['payloadData']
           : (json['data'] is Map<String, dynamic> ? json['data'] : null),
-      earthquake: json['earthquake'] is Map<String, dynamic> ? json['earthquake'] : null,
+      earthquake: eqMap,
     );
   }
 

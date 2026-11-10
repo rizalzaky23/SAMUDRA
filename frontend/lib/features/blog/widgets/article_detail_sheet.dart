@@ -18,7 +18,7 @@ class ArticleDetailSheet extends StatelessWidget {
     );
   }
 
-  Color _categoryColor(String category) {
+  static Color categoryColor(String category) {
     switch (category) {
       case 'edukasi_tsunami':
         return const Color(0xFF2563EB); // Blue
@@ -57,7 +57,7 @@ class ArticleDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final catColor = _categoryColor(article.category);
+    final catColor = categoryColor(article.category);
     final dateStr = _formatDate(article.publishedAt ?? article.createdAt);
 
     return DraggableScrollableSheet(
@@ -129,7 +129,7 @@ class ArticleDetailSheet extends StatelessWidget {
                         borderRadius: BorderRadius.circular(16),
                         child: CachedNetworkImage(
                           imageUrl: article.coverImageUrl!,
-                          height: 200,
+                          height: 230,
                           width: double.infinity,
                           fit: BoxFit.cover,
                           placeholder: (_, __) => Container(

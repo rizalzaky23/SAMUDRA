@@ -34,340 +34,392 @@ class _NotificationHistoryScreenState
       return true;
     }).toList();
 
+    // Pisahkan ke grup "Terbaru" (4 teratas) & "Sebelumnya" (sisanya) seperti referensi
+    final recentItems = filteredNotifications.take(4).toList();
+    final previousItems = filteredNotifications.length > 4
+        ? filteredNotifications.sublist(4)
+        : <NotificationModel>[];
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FB),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0.5,
-        shadowColor: Colors.black12,
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            size: 18,
-            color: Color(0xFF1E293B),
-          ),
-          onPressed: () => context.pop(),
-        ),
-        title: Text(
-          'Riwayat Notifikasi',
-          style: GoogleFonts.inter(
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-            color: const Color(0xFF1E293B),
-          ),
-        ),
-        actions: [
-          if (state.notifications.isNotEmpty)
-            PopupMenuButton<String>(
-              icon: const Icon(
-                Icons.more_vert_rounded,
-                color: Color(0xFF64748B),
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              onSelected: (val) {
-                if (val == 'mark_all_read') {
-                  notifier.markAllAsRead();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Semua notifikasi ditandai dibaca'),
-                      behavior: SnackBarBehavior.floating,
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                } else if (val == 'clear_all') {
-                  _showClearConfirmDialog(notifier);
-                }
-              },
-              itemBuilder: (ctx) => [
-                PopupMenuItem(
-                  value: 'mark_all_read',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.done_all_rounded, size: 18, color: AppColors.primary),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Tandai semua dibaca',
-                        style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500),
-                      ),
-                    ],
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Top Bar (sesuai referensi: tombol bulat <, judul tengah, tombol bulat •••) ──
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
+              child: Row(
+                children: [
+                  _buildCircleIconButton(
+                    icon: Icons.chevron_left_rounded,
+                    onTap: () => context.pop(),
                   ),
-                ),
-                PopupMenuItem(
-                  value: 'clear_all',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.danger),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Hapus semua riwayat',
-                        style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.danger),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Filter Chips
-          _buildFilterTabs(state),
-
-          // Notification List
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () => notifier.loadNotifications(),
-              color: AppColors.primary,
-              child: state.isLoading && state.notifications.isEmpty
-                  ? const Center(child: CircularProgressIndicator())
-                  : filteredNotifications.isEmpty
-                      ? _buildEmptyState()
-                      : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-                          physics: const AlwaysScrollableScrollPhysics(
-                            parent: BouncingScrollPhysics(),
-                          ),
-                          itemCount: filteredNotifications.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 10),
-                          itemBuilder: (ctx, index) {
-                            final item = filteredNotifications[index];
-                            return _buildNotificationCard(item, notifier);
-                          },
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'Notifikasi',
+                        style: GoogleFonts.inter(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF0F172A),
+                          letterSpacing: -0.3,
                         ),
+                      ),
+                    ),
+                  ),
+                  _buildMoreMenuButton(state, notifier),
+                ],
+              ),
             ),
-          ),
-        ],
+
+            // ── Filter Chips ──
+            _buildFilterTabs(),
+
+            const SizedBox(height: 6),
+
+            // ── Notification List (Grouped: Terbaru & Sebelumnya) ──
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () => notifier.loadNotifications(),
+                color: AppColors.primary,
+                child: state.isLoading && state.notifications.isEmpty
+                    ? const Center(child: CircularProgressIndicator())
+                    : filteredNotifications.isEmpty
+                        ? _buildEmptyState()
+                        : ListView(
+                            padding: const EdgeInsets.only(top: 6, bottom: 32),
+                            physics: const AlwaysScrollableScrollPhysics(
+                              parent: BouncingScrollPhysics(),
+                            ),
+                            children: [
+                              if (recentItems.isNotEmpty) ...[
+                                _buildSectionHeader(
+                                  title: 'Terbaru',
+                                  actionText: state.unreadCount > 0
+                                      ? 'Tandai dibaca'
+                                      : null,
+                                  onActionTap: state.unreadCount > 0
+                                      ? () => notifier.markAllAsRead()
+                                      : null,
+                                ),
+                                const SizedBox(height: 4),
+                                ...recentItems.map(
+                                  (item) =>
+                                      _buildNotificationRow(item, notifier),
+                                ),
+                              ],
+                              if (previousItems.isNotEmpty) ...[
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 12,
+                                  ),
+                                  child: Divider(
+                                    height: 1,
+                                    thickness: 1,
+                                    color: Color(0xFFE2E8F0),
+                                  ),
+                                ),
+                                _buildSectionHeader(title: 'Sebelumnya'),
+                                const SizedBox(height: 4),
+                                ...previousItems.map(
+                                  (item) =>
+                                      _buildNotificationRow(item, notifier),
+                                ),
+                              ],
+                            ],
+                          ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildFilterTabs(NotificationsState state) {
-    final filters = ['Semua', 'Peringatan', 'Edukasi & Info'];
+  Widget _buildCircleIconButton({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Icon(
+          icon,
+          size: 22,
+          color: const Color(0xFF0F172A),
+        ),
+      ),
+    );
+  }
 
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        children: filters.map((f) {
-          final isSelected = _selectedFilter == f;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: ChoiceChip(
-              label: Text(
-                f,
-                style: GoogleFonts.inter(
-                  fontSize: 12.5,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  color: isSelected ? Colors.white : const Color(0xFF64748B),
-                ),
-              ),
-              selected: isSelected,
-              showCheckmark: false,
-              selectedColor: AppColors.primary,
-              backgroundColor: const Color(0xFFF1F5F9),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: BorderSide(
-                  color: isSelected ? AppColors.primary : Colors.transparent,
-                ),
-              ),
-              onSelected: (_) {
-                setState(() => _selectedFilter = f);
-              },
+  Widget _buildMoreMenuButton(
+    NotificationsState state,
+    NotificationsNotifier notifier,
+  ) {
+    return PopupMenuButton<String>(
+      enabled: state.notifications.isNotEmpty,
+      offset: const Offset(0, 48),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      onSelected: (val) {
+        if (val == 'mark_all_read') {
+          notifier.markAllAsRead();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Semua notifikasi ditandai dibaca'),
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 2),
             ),
           );
-        }).toList(),
+        } else if (val == 'clear_all') {
+          _showClearConfirmDialog(notifier);
+        }
+      },
+      itemBuilder: (ctx) => [
+        PopupMenuItem(
+          value: 'mark_all_read',
+          child: Row(
+            children: [
+              const Icon(Icons.done_all_rounded,
+                  size: 18, color: AppColors.primary),
+              const SizedBox(width: 10),
+              Text(
+                'Tandai semua dibaca',
+                style: GoogleFonts.inter(
+                    fontSize: 13, fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'clear_all',
+          child: Row(
+            children: [
+              const Icon(Icons.delete_outline_rounded,
+                  size: 18, color: AppColors.danger),
+              const SizedBox(width: 10),
+              Text(
+                'Hapus semua riwayat',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.danger,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+      child: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: const Icon(
+          Icons.more_horiz_rounded,
+          size: 20,
+          color: Color(0xFF0F172A),
+        ),
       ),
     );
   }
 
-  Widget _buildNotificationCard(
-      NotificationModel item, NotificationsNotifier notifier) {
-    Color iconBg;
-    Color iconColor;
-    IconData icon;
-    String badgeText;
+  Widget _buildFilterTabs() {
+    final filters = ['Semua', 'Peringatan', 'Edukasi & Info'];
 
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        scrollDirection: Axis.horizontal,
+        itemCount: filters.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, i) {
+          final f = filters[i];
+          final isSelected = _selectedFilter == f;
+          return GestureDetector(
+            onTap: () => setState(() => _selectedFilter = f),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 7),
+              decoration: BoxDecoration(
+                color: isSelected ? AppColors.primary : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isSelected
+                      ? AppColors.primary
+                      : const Color(0xFFE2E8F0),
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  f,
+                  style: GoogleFonts.inter(
+                    fontSize: 12.5,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    color: isSelected ? Colors.white : const Color(0xFF475569),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader({
+    required String title,
+    String? actionText,
+    VoidCallback? onActionTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 6),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.inter(
+              fontSize: 15.5,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF0F172A),
+              letterSpacing: -0.2,
+            ),
+          ),
+          const Spacer(),
+          if (actionText != null)
+            GestureDetector(
+              onTap: onActionTap,
+              child: Text(
+                actionText,
+                style: GoogleFonts.inter(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF2563EB),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotificationRow(
+    NotificationModel item,
+    NotificationsNotifier notifier,
+  ) {
+    IconData icon;
     if (item.isTsunami) {
-      iconBg = const Color(0xFFFEE2E2);
-      iconColor = const Color(0xFFDC2626);
-      icon = Icons.tsunami_rounded;
-      badgeText = 'PERINGATAN TSUNAMI';
+      icon = Icons.waves_rounded;
     } else if (item.isEarthquake) {
-      iconBg = const Color(0xFFFEF3C7);
-      iconColor = const Color(0xFFD97706);
       icon = Icons.sensors_rounded;
-      badgeText = 'INFO GEMPA';
     } else if (item.isArticle) {
-      iconBg = const Color(0xFFE0E7FF);
-      iconColor = const Color(0xFF4F46E5);
       icon = Icons.menu_book_rounded;
-      badgeText = 'EDUKASI';
     } else {
-      iconBg = const Color(0xFFF1F5F9);
-      iconColor = const Color(0xFF475569);
       icon = Icons.notifications_none_rounded;
-      badgeText = 'INFORMASI';
     }
+
+    final isUnread = !item.isRead;
 
     return Dismissible(
       key: Key(item.id),
       direction: DismissDirection.endToStart,
       background: Container(
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        decoration: BoxDecoration(
-          color: const Color(0xFFEF4444),
-          borderRadius: BorderRadius.circular(16),
-        ),
+        padding: const EdgeInsets.only(right: 24),
+        color: const Color(0xFFEF4444),
         child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
       ),
       onDismissed: (_) {
         notifier.markAsRead(item.id);
       },
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: () {
           notifier.markAsRead(item.id);
           _handleNotificationTap(item);
         },
         child: Container(
-          decoration: BoxDecoration(
-            color: item.isRead ? Colors.white : const Color(0xFFF8FAFF),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: item.isRead
-                  ? const Color(0xFFE2E8F0)
-                  : AppColors.primary.withValues(alpha: 0.3),
-              width: item.isRead ? 1 : 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.all(14),
+          color: isUnread ? Colors.white : Colors.transparent,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Icon Badge
+              // Circular icon container (sesuai gambar referensi)
               Container(
-                width: 44,
-                height: 44,
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
-                  color: iconBg,
-                  borderRadius: BorderRadius.circular(12),
+                  color: isUnread ? const Color(0xFFEFF6FF) : Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isUnread
+                        ? const Color(0xFFDBEAFE)
+                        : const Color(0xFFE2E8F0),
+                  ),
                 ),
-                child: Icon(icon, color: iconColor, size: 22),
+                child: Icon(
+                  icon,
+                  color: const Color(0xFF2563EB),
+                  size: 21,
+                ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
 
-              // Content
+              // Title & Subtitle
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Badge category & time
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: iconBg,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            badgeText,
-                            style: GoogleFonts.inter(
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.w700,
-                              color: iconColor,
-                            ),
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          _formatTimeAgo(item.sentAt),
-                          style: GoogleFonts.inter(
-                            fontSize: 11,
-                            color: const Color(0xFF94A3B8),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        if (!item.isRead) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            width: 7,
-                            height: 7,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-
-                    // Title
                     Text(
                       item.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: item.isRead ? FontWeight.w600 : FontWeight.w700,
-                        color: const Color(0xFF1E293B),
+                        fontSize: 14.5,
+                        fontWeight:
+                            isUnread ? FontWeight.w700 : FontWeight.w600,
+                        color: const Color(0xFF0F172A),
                       ),
                     ),
-                    const SizedBox(height: 4),
-
-                    // Body
+                    const SizedBox(height: 3),
                     Text(
                       item.body,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.inter(
                         fontSize: 12.5,
-                        height: 1.35,
                         color: const Color(0xFF64748B),
                       ),
                     ),
-
-                    // Earthquake metadata chips (if available)
-                    if (item.data != null &&
-                        (item.data!['magnitude'] != null || item.data!['depthKm'] != null || item.data!['depth'] != null)) ...[
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: [
-                          if (item.data!['magnitude'] != null)
-                            _buildInfoChip(
-                              Icons.bolt_rounded,
-                              'M ${item.data!['magnitude']}',
-                              const Color(0xFFEF4444),
-                            ),
-                          if (item.data!['depthKm'] != null || item.data!['depth'] != null)
-                            _buildInfoChip(
-                              Icons.arrow_downward_rounded,
-                              '${item.data!['depthKm'] ?? item.data!['depth']} km',
-                              const Color(0xFF0284C7),
-                            ),
-                          if (item.data!['region'] != null)
-                            _buildInfoChip(
-                              Icons.location_on_outlined,
-                              item.data!['region'].toString(),
-                              const Color(0xFF475569),
-                              maxWidth: 160,
-                            ),
-                        ],
-                      ),
-                    ],
                   ],
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // Compact relative timestamp on the right
+              Text(
+                _formatTimeAgo(item.sentAt),
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: isUnread ? FontWeight.w600 : FontWeight.w500,
+                  color: isUnread
+                      ? const Color(0xFF2563EB)
+                      : const Color(0xFF64748B),
                 ),
               ),
             ],
@@ -377,41 +429,8 @@ class _NotificationHistoryScreenState
     );
   }
 
-  Widget _buildInfoChip(IconData icon, String text, Color color,
-      {double? maxWidth}) {
-    return Container(
-      constraints: maxWidth != null ? BoxConstraints(maxWidth: maxWidth) : null,
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 11, color: color),
-          const SizedBox(width: 3),
-          Flexible(
-            child: Text(
-              text,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.inter(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w600,
-                color: color,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _handleNotificationTap(NotificationModel item) {
     if (item.isTsunami || item.isEarthquake) {
-      // Buka Peta Live atau Riwayat Gempa
       context.go(AppRoutes.map);
     }
   }
@@ -424,23 +443,17 @@ class _NotificationHistoryScreenState
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 80,
-              height: 80,
+              width: 76,
+              height: 76,
               decoration: BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
               child: const Icon(
                 Icons.notifications_none_rounded,
-                size: 38,
-                color: Color(0xFF94A3B8),
+                size: 34,
+                color: Color(0xFF2563EB),
               ),
             ),
             const SizedBox(height: 18),
@@ -449,7 +462,7 @@ class _NotificationHistoryScreenState
               style: GoogleFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: const Color(0xFF1E293B),
+                color: const Color(0xFF0F172A),
               ),
             ),
             const SizedBox(height: 8),
@@ -498,8 +511,8 @@ class _NotificationHistoryScreenState
               Navigator.pop(ctx);
               notifier.clearAll();
             },
-            child: Text('Hapus',
-                style: GoogleFonts.inter(color: Colors.white)),
+            child:
+                Text('Hapus', style: GoogleFonts.inter(color: Colors.white)),
           ),
         ],
       ),
@@ -513,14 +526,13 @@ class _NotificationHistoryScreenState
     if (difference.inSeconds < 60) {
       return 'Baru saja';
     } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes} mnt lalu';
+      return '${difference.inMinutes}m lalu';
     } else if (difference.inHours < 24) {
-      return '${difference.inHours} jam lalu';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays} hari lalu';
+      return '${difference.inHours}j lalu';
+    } else if (difference.inDays < 30) {
+      return '${difference.inDays}h lalu';
     } else {
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+      return '${dateTime.day}/${dateTime.month}';
     }
   }
 }
-
