@@ -120,9 +120,17 @@ export class AuthController {
     }
 
     // Web: redirect ke frontend dengan token di URL query param
-    const frontendUrl =
-      this.configService.get<string>('GOOGLE_AUTH_SUCCESS_REDIRECT') ??
-      'http://localhost:3001/auth/callback';
+    let frontendUrl =
+      this.configService.get<string>('GOOGLE_AUTH_SUCCESS_REDIRECT');
+
+    // Jika frontend mengirim returnUrl via query state dan valid URL, gunakan itu
+    if (state && (state.startsWith('http://') || state.startsWith('https://'))) {
+      frontendUrl = state;
+    }
+
+    if (!frontendUrl) {
+      frontendUrl = 'https://admin.samudra.buzz/auth/callback';
+    }
 
     const redirectUrl = new URL(frontendUrl);
     redirectUrl.searchParams.set('accessToken', tokens.accessToken);

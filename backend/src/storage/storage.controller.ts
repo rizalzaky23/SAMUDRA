@@ -10,7 +10,7 @@ import {
   MaxFileSizeValidator,
   FileTypeValidator,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
@@ -86,6 +86,7 @@ export class StorageController {
     )
     file: Express.Multer.File,
     @Query('folder') folder: AllowedFolder = 'general',
+
   ): Promise<{ url: string; key: string; size: number; mimetype: string }> {
     if (!ALLOWED_FOLDERS.includes(folder)) {
       throw new BadRequestException(

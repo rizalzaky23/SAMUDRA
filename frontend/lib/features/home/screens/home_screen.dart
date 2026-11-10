@@ -516,7 +516,7 @@ class HomeScreen extends ConsumerWidget {
         // CTA Utama: "Rute Evakuasi Cepat" (3D Pill Button)
         Container(
           width: double.infinity,
-          height: 52,
+          height: 150,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
             gradient: const LinearGradient(

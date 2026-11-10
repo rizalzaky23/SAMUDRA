@@ -20,8 +20,29 @@ async function bootstrap() {
   );
 
   // CORS
+  const allowedOrigins: (string | RegExp)[] = [
+    'https://samudra.buzz',
+    'https://admin.samudra.buzz',
+    'http://localhost:3000',
+    'http://localhost:3001',
+    /^http:\/\/localhost(:\d+)?$/,
+    /^http:\/\/127\.0\.0\.1(:\d+)?$/,
+  ];
+
+  const envOrigins = configService.get<string>('CORS_ALLOWED_ORIGINS');
+  if (envOrigins) {
+    envOrigins
+      .split(',')
+      .map((o) => o.trim())
+      .forEach((o) => {
+        if (o && !allowedOrigins.includes(o)) {
+          allowedOrigins.push(o);
+        }
+      });
+  }
+
   app.enableCors({
-    origin: true,
+    origin: allowedOrigins,
     credentials: true,
   });
 
