@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/family_contact_model.dart';
 import '../providers/family_contacts_provider.dart';
+import '../providers/live_tracking_provider.dart';
 
 const String _kWhatsAppSvg = '''
 <svg viewBox="0 0 24 24" width="20" height="20" fill="white">
@@ -45,6 +46,7 @@ class EmergencyScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final familyState = ref.watch(familyContactsProvider);
+    final liveTracking = ref.watch(liveTrackingProvider);
     final contacts = familyState.contacts;
 
     return Scaffold(
@@ -66,83 +68,198 @@ class EmergencyScreen extends ConsumerWidget {
               ),
             ),
 
-            // ── Bagikan Lokasi Card ──
+            // ── Live Tracking / Bagikan Lokasi Card ──
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: familyState.isSharingLocation
-                      ? null
-                      : () => _handleShareLocation(context, ref, contacts),
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 20),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFF3B5BDB), Color(0xFF1E40AF)],
+              child: liveTracking.isActive
+                  ? Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 18, vertical: 18),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFFDC2626), Color(0xFF991B1B)],
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFDC2626)
+                                .withValues(alpha: 0.35),
+                            blurRadius: 18,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
                       ),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF1E40AF).withValues(alpha: 0.3),
-                          blurRadius: 16,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        // Share location icon / loading
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: familyState.isSharingLocation
-                              ? const Padding(
-                                  padding: EdgeInsets.all(12),
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.5,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(
-                                  Icons.share_location_rounded,
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
                                   color: Colors.white,
-                                  size: 26,
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          familyState.isSharingLocation
-                              ? 'Menyiapkan Live Location...'
-                              : 'Bagikan Live Location',
-                          style: GoogleFonts.inter(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: const BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Color(0xFFDC2626),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'LIVE TRACKING AKTIF',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                        color: const Color(0xFFDC2626),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Spacer(),
+                              Text(
+                                'GPS aktif',
+                                style: GoogleFonts.inter(
+                                  fontSize: 11.5,
+                                  color: Colors.white.withValues(alpha: 0.85),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Posisi Anda Sedang Dipantau',
+                            style: GoogleFonts.inter(
+                              fontSize: 16.5,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Keluarga (${liveTracking.activeContact?.name ?? "Kontak"}) dapat melihat pergerakan Anda di samudra.buzz/live',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.inter(
+                              fontSize: 12.5,
+                              color: Colors.white.withValues(alpha: 0.9),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 42,
+                            child: ElevatedButton.icon(
+                              onPressed: () => ref
+                                  .read(liveTrackingProvider.notifier)
+                                  .stopLiveTracking(),
+                              icon: const Icon(Icons.stop_circle_rounded,
+                                  size: 20),
+                              label: Text(
+                                'Hentikan Pelacakan',
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13.5,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: const Color(0xFFDC2626),
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: liveTracking.isStarting
+                            ? null
+                            : () =>
+                                _handleShareLocation(context, ref, contacts),
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 20),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [Color(0xFF3B5BDB), Color(0xFF1E40AF)],
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF1E40AF)
+                                    .withValues(alpha: 0.3),
+                                blurRadius: 16,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              // Share location icon / loading
+                              Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: liveTracking.isStarting
+                                    ? const Padding(
+                                        padding: EdgeInsets.all(12),
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.5,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.share_location_rounded,
+                                        color: Colors.white,
+                                        size: 26,
+                                      ),
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                liveTracking.isStarting
+                                    ? 'Menyiapkan Live Location...'
+                                    : 'Bagikan Live Location',
+                                style: GoogleFonts.inter(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Kirim titik lokasi & aktifkan Live Location di WhatsApp',
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Kirim titik lokasi & aktifkan Live Location di WhatsApp',
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            color: Colors.white.withValues(alpha: 0.8),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
-              ),
             ),
 
             const SizedBox(height: 24),
@@ -501,7 +618,7 @@ class EmergencyScreen extends ConsumerWidget {
           Tooltip(
             message: 'Bagikan Live Location via WhatsApp',
             child: GestureDetector(
-              onTap: () => _sendWhatsAppDirect(context, ref, contact),
+              onTap: () => _showLiveLocationGuideDialog(context, ref, contact),
               child: Container(
                 width: 38,
                 height: 38,
@@ -650,12 +767,165 @@ class EmergencyScreen extends ConsumerWidget {
     }
 
     if (contacts.length == 1) {
-      await _sendWhatsAppDirect(context, ref, contacts.first);
+      _showLiveLocationGuideDialog(context, ref, contacts.first);
       return;
     }
 
     // Jika lebih dari 1 kontak, tampilkan pilihan kontak
     _showSelectContactSheet(context, ref, contacts);
+  }
+
+  void _showLiveLocationGuideDialog(
+    BuildContext context,
+    WidgetRef ref,
+    FamilyContact contact,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        title: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFF25D366),
+              ),
+              child: Center(
+                child:
+                    SvgPicture.string(_kWhatsAppSvg, width: 20, height: 20),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Live Location WhatsApp',
+                style: GoogleFonts.inter(
+                  fontSize: 16.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Aplikasi SAMUDRA akan mengaktifkan GPS Live Tracker dan mengirim link pelacakan langsung ke WhatsApp ${contact.name}:',
+              style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                  height: 1.4),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFBBF7D0)),
+              ),
+              child: Column(
+                children: [
+                  _buildGuideStep(
+                    number: '1',
+                    text:
+                        'Aplikasi otomatis membuat link live tracking: samudra.buzz/live/...',
+                  ),
+                  const SizedBox(height: 10),
+                  _buildGuideStep(
+                    number: '2',
+                    text:
+                        'Saat Anda bergerak berpindah tempat, posisi titik di peta web keluarga akan terus bergeser secara real-time.',
+                  ),
+                  const SizedBox(height: 10),
+                  _buildGuideStep(
+                    number: '3',
+                    text:
+                        'Keluarga tidak perlu login atau install app apa pun—cukup buka link di WhatsApp.',
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Batal',
+              style: GoogleFonts.inter(color: AppColors.textSecondary),
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _sendWhatsAppDirect(context, ref, contact);
+            },
+            icon: SvgPicture.string(_kWhatsAppSvg, width: 16, height: 16),
+            label: Text(
+              'Mulai & Kirim WA',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF25D366),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGuideStep({required String number, required String text}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 20,
+          height: 20,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            color: Color(0xFF16A34A),
+          ),
+          child: Center(
+            child: Text(
+              number,
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: GoogleFonts.inter(
+              fontSize: 12.5,
+              color: const Color(0xFF14532D),
+              height: 1.35,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _sendWhatsAppDirect(
@@ -678,7 +948,7 @@ class EmergencyScreen extends ConsumerWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Membuka chat WhatsApp ${contact.name} untuk Live Location...',
+                'Mengaktifkan Live Tracker & membuka WhatsApp ${contact.name}...',
                 style: GoogleFonts.inter(fontSize: 13),
               ),
             ),
@@ -690,14 +960,16 @@ class EmergencyScreen extends ConsumerWidget {
     );
 
     final success = await ref
-        .read(familyContactsProvider.notifier)
-        .shareLocationToContact(contact);
+        .read(liveTrackingProvider.notifier)
+        .startLiveTracking(contact);
 
     if (!success && context.mounted) {
+      final error = ref.read(liveTrackingProvider).errorMessage ??
+          'Gagal membuka WhatsApp atau memulai Live Tracking.';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Gagal membuka WhatsApp. Pastikan WhatsApp terinstal atau nomor ${contact.name} valid.',
+            error,
             style: GoogleFonts.inter(fontSize: 13),
           ),
           backgroundColor: Colors.red,
@@ -826,7 +1098,7 @@ class EmergencyScreen extends ConsumerWidget {
                     ),
                     onTap: () {
                       Navigator.pop(ctx);
-                      _sendWhatsAppDirect(context, ref, c);
+                      _showLiveLocationGuideDialog(context, ref, c);
                     },
                   );
                 },
