@@ -122,8 +122,8 @@ class EmergencyScreen extends ConsumerWidget {
                         const SizedBox(height: 10),
                         Text(
                           familyState.isSharingLocation
-                              ? 'Menyiapkan lokasi & WhatsApp...'
-                              : 'Bagikan lokasi saya',
+                              ? 'Menyiapkan Live Location...'
+                              : 'Bagikan Live Location',
                           style: GoogleFonts.inter(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
@@ -132,7 +132,7 @@ class EmergencyScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Kirim ke kontak keluarga terdaftar via WhatsApp',
+                          'Kirim titik lokasi & aktifkan Live Location di WhatsApp',
                           style: GoogleFonts.inter(
                             fontSize: 13,
                             color: Colors.white.withValues(alpha: 0.8),
@@ -497,9 +497,9 @@ class EmergencyScreen extends ConsumerWidget {
             ),
           ),
 
-          // Action 1: WhatsApp Share Location Button (Green)
+          // Action 1: WhatsApp Live Location Button (Green)
           Tooltip(
-            message: 'Bagikan Lokasi via WhatsApp',
+            message: 'Bagikan Live Location via WhatsApp',
             child: GestureDetector(
               onTap: () => _sendWhatsAppDirect(context, ref, contact),
               child: Container(
@@ -678,13 +678,13 @@ class EmergencyScreen extends ConsumerWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Mengambil titik lokasi & membuka WhatsApp ${contact.name}...',
+                'Membuka chat WhatsApp ${contact.name} untuk Live Location...',
                 style: GoogleFonts.inter(fontSize: 13),
               ),
             ),
           ],
         ),
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 4),
         backgroundColor: const Color(0xFF1E293B),
       ),
     );
@@ -736,7 +736,7 @@ class EmergencyScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Bagikan Lokasi ke WhatsApp',
+              'Bagikan Live Location ke WhatsApp',
               style: GoogleFonts.inter(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -745,7 +745,7 @@ class EmergencyScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Pilih kontak keluarga yang ingin Anda kirimi pesan darurat dan link lokasi:',
+              'Pilih kontak keluarga yang ingin Anda kirimi titik lokasi & pantau secara live di WhatsApp:',
               style: GoogleFonts.inter(
                 fontSize: 13,
                 color: AppColors.textSecondary,
@@ -814,9 +814,9 @@ class EmergencyScreen extends ConsumerWidget {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            'Kirim',
+                            'Live Location',
                             style: GoogleFonts.inter(
-                              fontSize: 12.5,
+                              fontSize: 12,
                               fontWeight: FontWeight.w700,
                               color: Colors.white,
                             ),
@@ -869,17 +869,18 @@ class EmergencyScreen extends ConsumerWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setModalState) => Padding(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 16,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        builder: (context, setModalState) => SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
               Center(
                 child: Container(
                   width: 40,
@@ -1113,8 +1114,10 @@ class EmergencyScreen extends ConsumerWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 
   void _confirmDeleteContact(
     BuildContext context,

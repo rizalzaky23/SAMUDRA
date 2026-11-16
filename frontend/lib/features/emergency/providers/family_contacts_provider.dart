@@ -207,17 +207,20 @@ class FamilyContactsNotifier extends StateNotifier<FamilyContactsState> {
       final mapsUrl = 'https://maps.google.com/?q=$lat,$lng';
 
       final msg = StringBuffer();
-      msg.writeln('🚨 *PESAN DARURAT SAMUDRA* 🚨');
+      msg.writeln('🚨 *DARURAT SAMUDRA — PEMANTAUAN LIVE LOCATION* 🚨');
       msg.writeln('Halo *${contact.name}*, saya membutuhkan pertolongan darurat!');
       msg.writeln();
-      msg.writeln('📍 *Lokasi Real-Time Saya Saat Ini:*');
+      msg.writeln('📍 *Peta & Titik Koordinat Real-Time Saya:*');
       msg.writeln(mapsUrl);
       msg.writeln('Koordinat: $lat, $lng');
       if (addressText != null) {
-        msg.writeln('Perkiraan Area: $addressText');
+        msg.writeln('Area Sekitar: $addressText');
       }
       msg.writeln();
-      msg.writeln('_(Dikirim via Fitur Kontak Darurat Aplikasi SAMUDRA)_');
+      msg.writeln('🔴 *PEMANTAUAN LANGSUNG (LIVE LOCATION WHATSAPP):*');
+      msg.writeln('Mohon pantau pergerakan saya secara langsung di ruang obrolan ini.');
+      msg.writeln();
+      msg.writeln('_(Pesan otomatis dikirim melalui Fitur Darurat Aplikasi SAMUDRA)_');
 
       final encoded = Uri.encodeComponent(msg.toString());
 
