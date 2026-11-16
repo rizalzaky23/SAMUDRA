@@ -501,7 +501,7 @@ class EmergencyScreen extends ConsumerWidget {
           Tooltip(
             message: 'Bagikan Live Location via WhatsApp',
             child: GestureDetector(
-              onTap: () => _sendWhatsAppDirect(context, ref, contact),
+              onTap: () => _showLiveLocationGuideDialog(context, ref, contact),
               child: Container(
                 width: 38,
                 height: 38,
@@ -650,12 +650,165 @@ class EmergencyScreen extends ConsumerWidget {
     }
 
     if (contacts.length == 1) {
-      await _sendWhatsAppDirect(context, ref, contacts.first);
+      _showLiveLocationGuideDialog(context, ref, contacts.first);
       return;
     }
 
     // Jika lebih dari 1 kontak, tampilkan pilihan kontak
     _showSelectContactSheet(context, ref, contacts);
+  }
+
+  void _showLiveLocationGuideDialog(
+    BuildContext context,
+    WidgetRef ref,
+    FamilyContact contact,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        title: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFF25D366),
+              ),
+              child: Center(
+                child:
+                    SvgPicture.string(_kWhatsAppSvg, width: 20, height: 20),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Live Location WhatsApp',
+                style: GoogleFonts.inter(
+                  fontSize: 16.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Agar pergerakan posisi Anda dapat dipantau secara langsung (bergerak real-time) oleh ${contact.name}:',
+              style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                  height: 1.4),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFBBF7D0)),
+              ),
+              child: Column(
+                children: [
+                  _buildGuideStep(
+                    number: '1',
+                    text:
+                        'Aplikasi akan membuka ruang chat WhatsApp ${contact.name}.',
+                  ),
+                  const SizedBox(height: 10),
+                  _buildGuideStep(
+                    number: '2',
+                    text:
+                        'Di WhatsApp, ketuk tombol lampiran (📎) di samping kolom ketik.',
+                  ),
+                  const SizedBox(height: 10),
+                  _buildGuideStep(
+                    number: '3',
+                    text:
+                        'Pilih "Lokasi" ➔ "Berbagi Lokasi Terkini" (pilih durasi 15 menit atau 1 jam).',
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Batal',
+              style: GoogleFonts.inter(color: AppColors.textSecondary),
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _sendWhatsAppDirect(context, ref, contact);
+            },
+            icon: SvgPicture.string(_kWhatsAppSvg, width: 16, height: 16),
+            label: Text(
+              'Buka WhatsApp',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF25D366),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGuideStep({required String number, required String text}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 20,
+          height: 20,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            color: Color(0xFF16A34A),
+          ),
+          child: Center(
+            child: Text(
+              number,
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: GoogleFonts.inter(
+              fontSize: 12.5,
+              color: const Color(0xFF14532D),
+              height: 1.35,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _sendWhatsAppDirect(
@@ -826,7 +979,7 @@ class EmergencyScreen extends ConsumerWidget {
                     ),
                     onTap: () {
                       Navigator.pop(ctx);
-                      _sendWhatsAppDirect(context, ref, c);
+                      _showLiveLocationGuideDialog(context, ref, c);
                     },
                   );
                 },
