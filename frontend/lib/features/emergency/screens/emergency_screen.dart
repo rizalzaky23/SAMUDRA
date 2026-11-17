@@ -157,24 +157,30 @@ class EmergencyScreen extends ConsumerWidget {
                           const SizedBox(height: 16),
                           SizedBox(
                             width: double.infinity,
-                            height: 42,
+                            height: 48,
                             child: ElevatedButton.icon(
                               onPressed: () => ref
                                   .read(liveTrackingProvider.notifier)
                                   .stopLiveTracking(),
-                              icon: const Icon(Icons.stop_circle_rounded,
-                                  size: 20),
+                              icon: const Icon(
+                                Icons.stop_circle_rounded,
+                                size: 22,
+                                color: Color(0xFFDC2626),
+                              ),
                               label: Text(
                                 'Hentikan Pelacakan',
                                 style: GoogleFonts.inter(
                                   fontWeight: FontWeight.w700,
-                                  fontSize: 13.5,
+                                  fontSize: 14,
+                                  color: const Color(0xFFDC2626),
                                 ),
                               ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.white,
                                 foregroundColor: const Color(0xFFDC2626),
                                 elevation: 0,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 0),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),

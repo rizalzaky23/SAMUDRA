@@ -35,3 +35,4 @@ export class TrackingController {
     return this.trackingService.stopSession(dto.sessionId);
   }
 }
+

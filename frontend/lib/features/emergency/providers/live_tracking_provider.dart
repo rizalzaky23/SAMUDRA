@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'package:battery_plus/battery_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +18,7 @@ class LiveTrackingState {
   final String? sessionId;
   final FamilyContact? activeContact;
   final Position? lastPosition;
+  final int? batteryLevel;
   final DateTime? lastSentAt;
   final String? errorMessage;
 
@@ -26,6 +28,7 @@ class LiveTrackingState {
     this.sessionId,
     this.activeContact,
     this.lastPosition,
+    this.batteryLevel,
     this.lastSentAt,
     this.errorMessage,
   });
@@ -36,6 +39,7 @@ class LiveTrackingState {
     String? sessionId,
     FamilyContact? activeContact,
     Position? lastPosition,
+    int? batteryLevel,
     DateTime? lastSentAt,
     String? errorMessage,
   }) {
@@ -45,6 +49,7 @@ class LiveTrackingState {
       sessionId: sessionId ?? this.sessionId,
       activeContact: activeContact ?? this.activeContact,
       lastPosition: lastPosition ?? this.lastPosition,
+      batteryLevel: batteryLevel ?? this.batteryLevel,
       lastSentAt: lastSentAt ?? this.lastSentAt,
       errorMessage: errorMessage,
     );
@@ -53,6 +58,7 @@ class LiveTrackingState {
 
 class LiveTrackingNotifier extends StateNotifier<LiveTrackingState> {
   final Dio _dio = Dio();
+  final Battery _battery = Battery();
   StreamSubscription<Position>? _positionSub;
   Timer? _heartbeatTimer;
 
@@ -62,6 +68,15 @@ class LiveTrackingNotifier extends StateNotifier<LiveTrackingState> {
     final rand = Random().nextInt(999999).toString().padLeft(6, '0');
     final time = DateTime.now().millisecondsSinceEpoch.toString().substring(7);
     return 'track-$time-$rand';
+  }
+
+  /// Ambil persentase baterai HP terkini
+  Future<int?> _getBatteryLevel() async {
+    try {
+      return await _battery.batteryLevel;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Mulai sesi live tracking & buka WhatsApp keluarga
@@ -126,6 +141,9 @@ class LiveTrackingNotifier extends StateNotifier<LiveTrackingState> {
         }
       } catch (_) {}
 
+      // Dapatkan level baterai HP saat ini
+      final batteryLvl = await _getBatteryLevel();
+
       // 3. Kirim data awal ke Backend SAMUDRA
       await _sendCoordinateToBackend(
         sessionId: sessionId,
@@ -134,6 +152,7 @@ class LiveTrackingNotifier extends StateNotifier<LiveTrackingState> {
         longitude: initialPos.longitude,
         speed: initialPos.speed,
         heading: initialPos.heading,
+        batteryLevel: batteryLvl,
         status: 'active',
       );
 
@@ -173,6 +192,9 @@ class LiveTrackingNotifier extends StateNotifier<LiveTrackingState> {
       if (addressText != null) {
         msg.writeln('Area: $addressText');
       }
+      if (batteryLvl != null) {
+        msg.writeln('🔋 Baterai HP: $batteryLvl%');
+      }
       msg.writeln();
       msg.writeln('_(Buka link di atas di browser Anda untuk melihat pergerakan posisi saya secara langsung di peta SAMUDRA)_');
 
@@ -200,6 +222,7 @@ class LiveTrackingNotifier extends StateNotifier<LiveTrackingState> {
         sessionId: sessionId,
         activeContact: contact,
         lastPosition: initialPos,
+        batteryLevel: batteryLvl,
         lastSentAt: DateTime.now(),
       );
 
@@ -226,8 +249,10 @@ class LiveTrackingNotifier extends StateNotifier<LiveTrackingState> {
 
     _positionSub = Geolocator.getPositionStream(locationSettings: locationSettings)
         .listen((position) async {
+      final batteryLvl = await _getBatteryLevel();
       state = state.copyWith(
         lastPosition: position,
+        batteryLevel: batteryLvl,
         lastSentAt: DateTime.now(),
       );
 
@@ -238,6 +263,7 @@ class LiveTrackingNotifier extends StateNotifier<LiveTrackingState> {
         longitude: position.longitude,
         speed: position.speed,
         heading: position.heading,
+        batteryLevel: batteryLvl,
         status: 'active',
       );
     });
@@ -246,6 +272,10 @@ class LiveTrackingNotifier extends StateNotifier<LiveTrackingState> {
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 12), (_) async {
       final currentPos = state.lastPosition;
       if (currentPos != null && state.isActive) {
+        final batteryLvl = await _getBatteryLevel();
+        if (batteryLvl != null) {
+          state = state.copyWith(batteryLevel: batteryLvl);
+        }
         await _sendCoordinateToBackend(
           sessionId: sessionId,
           userName: userName,
@@ -253,6 +283,7 @@ class LiveTrackingNotifier extends StateNotifier<LiveTrackingState> {
           longitude: currentPos.longitude,
           speed: currentPos.speed,
           heading: currentPos.heading,
+          batteryLevel: batteryLvl,
           status: 'active',
         );
       }
@@ -266,21 +297,27 @@ class LiveTrackingNotifier extends StateNotifier<LiveTrackingState> {
     required double longitude,
     double? speed,
     double? heading,
+    int? batteryLevel,
     String status = 'active',
   }) async {
     try {
       final url = '${AppConstants.apiBaseUrl}/tracking/update';
+      final payload = <String, dynamic>{
+        'sessionId': sessionId,
+        'userName': userName,
+        'latitude': latitude,
+        'longitude': longitude,
+        'speed': speed ?? 0,
+        'heading': heading ?? 0,
+        'status': status,
+      };
+      if (batteryLevel != null) {
+        payload['batteryLevel'] = batteryLevel;
+      }
+
       await _dio.post(
         url,
-        data: {
-          'sessionId': sessionId,
-          'userName': userName,
-          'latitude': latitude,
-          'longitude': longitude,
-          'speed': speed ?? 0,
-          'heading': heading ?? 0,
-          'status': status,
-        },
+        data: payload,
       ).timeout(const Duration(seconds: 5));
     } catch (e) {
       debugPrint('Gagal mengirim koordinat live ke backend: $e');
@@ -320,3 +357,4 @@ final liveTrackingProvider =
     StateNotifierProvider<LiveTrackingNotifier, LiveTrackingState>((ref) {
   return LiveTrackingNotifier();
 });
+
