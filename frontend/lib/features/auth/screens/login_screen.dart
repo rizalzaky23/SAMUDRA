@@ -102,7 +102,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                 ),
 
-                // Header Content: Icon, Title, Subtitle
+                // Header Content: Logo SAMUDRA
                 SafeArea(
                   bottom: false,
                   child: SizedBox(
@@ -111,39 +111,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Squircle Icon
-                        Container(
-                          width: 64,
-                          height: 64,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.20),
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.35),
-                              width: 1.2,
-                            ),
-                          ),
-                          child: Center(
-                            child: SvgPicture.string(
-                              _waveIconSvg,
-                              width: 32,
-                              height: 32,
-                            ),
-                          ),
+                        // Logo SAMUDRA (full horizontal, transparan untuk bg gelap)
+                        Image.asset(
+                          'assets/images/logo_full_dark.png',
+                          height: 72,
+                          filterQuality: FilterQuality.high,
                         ),
-                        const SizedBox(height: 14),
-
-                        // Title "Tsunami"
-                        Text(
-                          'Tsunami',
-                          style: GoogleFonts.inter(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                        const SizedBox(height: 5),
+                        const SizedBox(height: 10),
 
                         // Subtitle
                         Text(
@@ -603,14 +577,6 @@ class _HeaderWavesPainter extends CustomPainter {
   @override
   bool shouldRepaint(_HeaderWavesPainter old) => false;
 }
-
-// ── Wave Icon SVG inside squircle ──
-const String _waveIconSvg = '''
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
-  <path d="M8 22C12 16 16 16 20 22C24 28 28 28 32 22C36 16 40 16 44 22" stroke="white" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M8 32C12 26 16 26 20 32C24 38 28 38 32 32C36 26 40 26 44 32" stroke="white" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>
-''';
 
 // ── Official Google G Logo SVG ──
 const String _googleSvg = '''
