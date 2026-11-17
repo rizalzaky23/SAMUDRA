@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsOptional, MaxLength, IsNotEmpty } from 'class-validator';
+import { IsString, IsEnum, IsOptional, MaxLength, IsNotEmpty, IsArray } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { ArticleCategory, ArticleStatus } from '../entities/article.entity';
 
@@ -23,6 +23,16 @@ export class CreateArticleDto {
   @IsOptional()
   @IsString()
   coverImageUrl?: string;
+
+  @ApiProperty({
+    type: [String],
+    required: false,
+    description: 'Daftar URL gambar pendukung / multi gambar untuk artikel',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[];
 
   @ApiProperty({ enum: ArticleStatus, required: false })
   @IsOptional()
@@ -51,6 +61,16 @@ export class UpdateArticleDto {
   @IsOptional()
   @IsString()
   coverImageUrl?: string;
+
+  @ApiProperty({
+    type: [String],
+    required: false,
+    description: 'Daftar URL gambar pendukung / multi gambar untuk artikel',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[];
 
   @ApiProperty({ enum: ArticleStatus, required: false })
   @IsOptional()

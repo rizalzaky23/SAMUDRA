@@ -5,6 +5,7 @@ class ArticleModel {
   final String category;
   final String status;
   final String? coverImageUrl;
+  final List<String> images;
   final String authorId;
   final String? authorName;
   final DateTime? publishedAt;
@@ -17,6 +18,7 @@ class ArticleModel {
     required this.category,
     required this.status,
     this.coverImageUrl,
+    this.images = const [],
     required this.authorId,
     this.authorName,
     this.publishedAt,
@@ -31,6 +33,9 @@ class ArticleModel {
       category: json['category'] ?? 'edukasi_tsunami',
       status: json['status'] ?? 'draft',
       coverImageUrl: json['coverImageUrl'],
+      images: json['images'] is List
+          ? (json['images'] as List).map((e) => e.toString()).toList()
+          : [],
       authorId: json['authorId'] ?? (json['author'] is Map ? json['author']['id'] ?? '' : ''),
       authorName: json['author'] is Map ? json['author']['name'] : null,
       publishedAt: json['publishedAt'] != null ? DateTime.tryParse(json['publishedAt']) : null,

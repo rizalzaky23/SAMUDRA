@@ -71,6 +71,30 @@ export class StorageService {
   }
 
   /**
+   * Upload banyak file buffer sekaligus ke Cloudflare R2 secara paralel.
+   * @param files   - Array file dari Multer (Express.Multer.File[])
+   * @param folder  - Sub-folder di dalam bucket, mis: 'articles'
+   * @returns       - Array informasi file yang berhasil diupload (url, key, size, mimetype)
+   */
+  async uploadMultipleFiles(
+    files: Express.Multer.File[],
+    folder: string,
+  ): Promise<Array<{ url: string; key: string; size: number; mimetype: string }>> {
+    return Promise.all(
+      files.map(async (file) => {
+        const url = await this.uploadFile(file, folder);
+        const key = url.split('/').slice(-2).join('/');
+        return {
+          url,
+          key,
+          size: file.size,
+          mimetype: file.mimetype,
+        };
+      }),
+    );
+  }
+
+  /**
    * Hapus file dari Cloudflare R2 berdasarkan key atau full URL.
    */
   async deleteFile(keyOrUrl: string): Promise<void> {
