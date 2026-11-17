@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -9,6 +10,7 @@ import { Article, ArticleStatus } from './entities/article.entity';
 import { User, UserRole } from '../users/entities/user.entity';
 import { CreateArticleDto, UpdateArticleDto } from './dto/article.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+import { StorageService } from '../storage/storage.service';
 
 @Injectable()
 export class ArticlesService {
@@ -16,6 +18,7 @@ export class ArticlesService {
     @InjectRepository(Article)
     private articlesRepo: Repository<Article>,
     private notificationsService: NotificationsService,
+    private storageService: StorageService,
   ) {}
 
   private generateSlug(title: string): string {
@@ -55,12 +58,17 @@ export class ArticlesService {
 
   async create(dto: CreateArticleDto, author: User): Promise<Article> {
     const isPublished = dto.status === ArticleStatus.PUBLISHED;
+    const images = dto.images ?? [];
+    const coverImageUrl =
+      dto.coverImageUrl || (images.length > 0 ? images[0] : undefined);
+
     const article = this.articlesRepo.create({
       title: dto.title,
       slug: this.generateSlug(dto.title),
       content: dto.content,
       category: dto.category,
-      coverImageUrl: dto.coverImageUrl,
+      coverImageUrl: coverImageUrl,
+      images: images,
       status: dto.status ?? ArticleStatus.DRAFT,
       authorId: author.id,
       publishedAt: isPublished ? new Date() : undefined,
@@ -91,6 +99,12 @@ export class ArticlesService {
     if (dto.content !== undefined) article.content = dto.content;
     if (dto.category !== undefined) article.category = dto.category;
     if (dto.coverImageUrl !== undefined) article.coverImageUrl = dto.coverImageUrl;
+    if (dto.images !== undefined) {
+      article.images = dto.images;
+      if (!article.coverImageUrl && dto.images.length > 0) {
+        article.coverImageUrl = dto.images[0];
+      }
+    }
     if (dto.status !== undefined) {
       if (dto.status === ArticleStatus.PUBLISHED && !article.publishedAt) {
         article.publishedAt = new Date();
@@ -106,6 +120,62 @@ export class ArticlesService {
     }
 
     return updated;
+  }
+
+  /**
+   * Upload lebih dari 1 gambar sekaligus langsung ke artikel tertentu
+   */
+  async uploadArticleImages(
+    id: string,
+    files: Express.Multer.File[],
+    currentUser: User,
+  ): Promise<{ article: Article; uploadedUrls: string[] }> {
+    const article = await this.findById(id);
+
+    if (article.authorId !== currentUser.id && currentUser.role !== UserRole.SUPER_ADMIN) {
+      throw new ForbiddenException('Hanya penulis atau super admin yang bisa mengubah artikel ini');
+    }
+
+    if (!files || files.length === 0) {
+      throw new BadRequestException('Tidak ada file gambar yang diunggah');
+    }
+
+    const uploaded = await this.storageService.uploadMultipleFiles(files, 'articles');
+    const newUrls = uploaded.map((item) => item.url);
+
+    article.images = [...(article.images || []), ...newUrls];
+    if (!article.coverImageUrl && article.images.length > 0) {
+      article.coverImageUrl = article.images[0];
+    }
+
+    const saved = await this.articlesRepo.save(article);
+    return {
+      article: saved,
+      uploadedUrls: newUrls,
+    };
+  }
+
+  /**
+   * Hapus satu gambar dari galeri artikel
+   */
+  async removeArticleImage(
+    id: string,
+    imageUrl: string,
+    currentUser: User,
+  ): Promise<Article> {
+    const article = await this.findById(id);
+
+    if (article.authorId !== currentUser.id && currentUser.role !== UserRole.SUPER_ADMIN) {
+      throw new ForbiddenException('Hanya penulis atau super admin yang bisa mengubah artikel ini');
+    }
+
+    article.images = (article.images || []).filter((url) => url !== imageUrl);
+    if (article.coverImageUrl === imageUrl) {
+      article.coverImageUrl = article.images.length > 0 ? article.images[0] : '';
+    }
+
+    await this.storageService.deleteFile(imageUrl);
+    return this.articlesRepo.save(article);
   }
 
   async remove(id: string, currentUser: User): Promise<{ message: string }> {

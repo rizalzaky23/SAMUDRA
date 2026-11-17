@@ -10,14 +10,23 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  UseInterceptors,
+  UploadedFiles,
+  ParseFilePipe,
+  MaxFileSizeValidator,
+  FileTypeValidator,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
   ApiBearerAuth,
   ApiQuery,
   ApiResponse,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
+import { memoryStorage } from 'multer';
 import { ArticlesService } from './articles.service';
 import { CreateArticleDto, UpdateArticleDto } from './dto/article.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -84,6 +93,63 @@ export class ArticlesController {
     @CurrentUser() user: User,
   ) {
     return this.articlesService.update(id, dto, user);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiBearerAuth()
+  @Post(':id/images')
+  @ApiOperation({ summary: '[Admin] Upload lebih dari 1 gambar ke artikel (galeri)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        images: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+          description: 'Pilih beberapa file gambar artikel sekaligus',
+        },
+      },
+      required: ['images'],
+    },
+  })
+  @UseInterceptors(
+    FilesInterceptor('images', 20, {
+      storage: memoryStorage(),
+    }),
+  )
+  uploadImages(
+    @Param('id') id: string,
+    @UploadedFiles(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 50 * 1024 * 1024 }),
+          new FileTypeValidator({
+            fileType: /(image\/(jpeg|jpg|png|webp|gif|svg\+xml))/,
+            fallbackToMimetype: true,
+          } as any),
+        ],
+        fileIsRequired: true,
+      }),
+    )
+    files: Express.Multer.File[],
+    @CurrentUser() user: User,
+  ) {
+    return this.articlesService.uploadArticleImages(id, files, user);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiBearerAuth()
+  @Delete(':id/images')
+  @ApiOperation({ summary: '[Admin] Hapus satu gambar dari galeri artikel' })
+  removeImage(
+    @Param('id') id: string,
+    @Body('imageUrl') imageUrl: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.articlesService.removeArticleImage(id, imageUrl, user);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

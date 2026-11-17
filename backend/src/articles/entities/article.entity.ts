@@ -49,6 +49,14 @@ export class Article {
   @Column({ name: 'cover_image_url', nullable: true })
   coverImageUrl: string;
 
+  @ApiProperty({
+    description: 'Daftar URL gambar artikel (multi gambar / galeri)',
+    type: [String],
+    required: false,
+  })
+  @Column('text', { array: true, default: '{}', nullable: true })
+  images: string[];
+
   @ApiProperty()
   @Column({ name: 'author_id' })
   authorId: string;
