@@ -1,12 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- SAMUDRA splash — solid blue matching Flutter gradient top (API 21+) -->
+<!-- Native splash: solid blue saja, tanpa ikon — langsung menyatu ke Flutter splash -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/splash_bg" />
-
-    <!-- Centered SAMUDRA wave icon -->
-    <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@mipmap/launch_image" />
-    </item>
 </layer-list>
