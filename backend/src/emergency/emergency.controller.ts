@@ -19,6 +19,8 @@ import {
   UpdatePeralatanDto,
   CreateSafePointDto,
   UpdateSafePointDto,
+  CreateFamilyContactDto,
+  UpdateFamilyContactDto,
 } from './emergency.service';
 import { Public } from '../auth/decorators/public.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -141,5 +143,47 @@ export class EmergencyController {
   @ApiOperation({ summary: '[Admin] Hapus titik aman dari peta' })
   deleteSafePoint(@Param('id') id: string) {
     return this.emergencyService.deleteSafePoint(id);
+  }
+
+  // ─── Family Contacts (per-akun user) ──────────────────────────────────────
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Get('family-contacts')
+  @ApiOperation({ summary: 'Daftar kontak keluarga milik akun yang login' })
+  getFamilyContacts(@CurrentUser() user: User) {
+    return this.emergencyService.getFamilyContacts(user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Post('family-contacts')
+  @ApiOperation({ summary: 'Tambah kontak keluarga baru ke akun' })
+  createFamilyContact(
+    @Body() dto: CreateFamilyContactDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.emergencyService.createFamilyContact(dto, user);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Patch('family-contacts/:id')
+  @ApiOperation({ summary: 'Update kontak keluarga milik akun' })
+  updateFamilyContact(
+    @Param('id') id: string,
+    @Body() dto: UpdateFamilyContactDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.emergencyService.updateFamilyContact(id, dto, user);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Delete('family-contacts/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Hapus kontak keluarga milik akun' })
+  deleteFamilyContact(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.emergencyService.deleteFamilyContact(id, user);
   }
 }

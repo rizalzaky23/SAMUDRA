@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/providers/settings_provider.dart';
 import '../models/article_model.dart';
 
 final fallbackArticles = [
@@ -37,6 +38,9 @@ final fallbackArticles = [
 ];
 
 final articlesProvider = FutureProvider<List<ArticleModel>>((ref) async {
+  if (ref.watch(settingsProvider).offlineMode) {
+    return fallbackArticles;
+  }
   try {
     final dio = Dio(
       BaseOptions(

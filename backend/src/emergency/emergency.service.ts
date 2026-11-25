@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { MitigasiStep } from './entities/mitigasi-step.entity';
 import { PeralatanSiaga } from './entities/peralatan-siaga.entity';
 import { SafePoint } from './entities/safe-point.entity';
+import { FamilyContact } from './entities/family-contact.entity';
 import { User } from '../users/entities/user.entity';
 
 import { IsString, IsNotEmpty, IsOptional, IsNumber } from 'class-validator';
@@ -203,6 +204,40 @@ export class UpdateSafePointDto {
 
 // ─── Service ──────────────────────────────────────────────────────────────────
 
+export class CreateFamilyContactDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiProperty({ required: false, default: 'Keluarga' })
+  @IsOptional()
+  @IsString()
+  relationship?: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  phone: string;
+}
+
+export class UpdateFamilyContactDto {
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  relationship?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+}
+
 @Injectable()
 export class EmergencyService {
   constructor(
@@ -212,6 +247,8 @@ export class EmergencyService {
     private peralatanRepo: Repository<PeralatanSiaga>,
     @InjectRepository(SafePoint)
     private safePointRepo: Repository<SafePoint>,
+    @InjectRepository(FamilyContact)
+    private familyContactRepo: Repository<FamilyContact>,
   ) {}
 
   // Mitigasi
@@ -334,5 +371,54 @@ export class EmergencyService {
     if (!item) throw new NotFoundException('Titik aman tidak ditemukan');
     await this.safePointRepo.remove(item);
     return { message: 'Titik aman berhasil dihapus' };
+  }
+
+  // ─── Family Contacts (per-akun user) ──────────────────────────────────────
+
+  async getFamilyContacts(userId: string): Promise<FamilyContact[]> {
+    return this.familyContactRepo.find({
+      where: { userId },
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  async createFamilyContact(
+    dto: CreateFamilyContactDto,
+    user: User,
+  ): Promise<FamilyContact> {
+    const item = this.familyContactRepo.create({
+      userId: user.id,
+      name: dto.name.trim(),
+      relationship: dto.relationship?.trim() || 'Keluarga',
+      phone: dto.phone.trim(),
+    });
+    return this.familyContactRepo.save(item);
+  }
+
+  async updateFamilyContact(
+    id: string,
+    dto: UpdateFamilyContactDto,
+    user: User,
+  ): Promise<FamilyContact> {
+    const item = await this.familyContactRepo.findOne({
+      where: { id, userId: user.id },
+    });
+    if (!item) throw new NotFoundException('Kontak keluarga tidak ditemukan');
+    if (dto.name !== undefined) item.name = dto.name.trim();
+    if (dto.relationship !== undefined) item.relationship = dto.relationship.trim();
+    if (dto.phone !== undefined) item.phone = dto.phone.trim();
+    return this.familyContactRepo.save(item);
+  }
+
+  async deleteFamilyContact(
+    id: string,
+    user: User,
+  ): Promise<{ message: string }> {
+    const item = await this.familyContactRepo.findOne({
+      where: { id, userId: user.id },
+    });
+    if (!item) throw new NotFoundException('Kontak keluarga tidak ditemukan');
+    await this.familyContactRepo.remove(item);
+    return { message: 'Kontak keluarga berhasil dihapus' };
   }
 }

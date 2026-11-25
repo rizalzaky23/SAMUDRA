@@ -5,9 +5,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../core/network/api_client.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../models/family_contact_model.dart';
 
-const _kFamilyContactsKey = 'samudra_family_contacts_v1';
+const _kFamilyContactsPrefix = 'samudra_family_contacts_v1';
 
 class FamilyContactsState {
   final List<FamilyContact> contacts;
@@ -34,38 +36,80 @@ class FamilyContactsState {
 }
 
 class FamilyContactsNotifier extends StateNotifier<FamilyContactsState> {
+  final String? _userId;
+  final bool _isAuthenticated;
   SharedPreferences? _prefs;
 
-  FamilyContactsNotifier() : super(const FamilyContactsState(isLoading: true)) {
+  FamilyContactsNotifier({
+    required String? userId,
+    required bool isAuthenticated,
+  })  : _userId = userId,
+        _isAuthenticated = isAuthenticated,
+        super(const FamilyContactsState(isLoading: true)) {
     _load();
   }
 
+  String get _storageKey {
+    final uid = _userId;
+    return uid != null && uid.isNotEmpty
+        ? '${_kFamilyContactsPrefix}_$uid'
+        : '${_kFamilyContactsPrefix}_guest';
+  }
+
   Future<void> _load() async {
+    // 1. Muat cache lokal akun terlebih dulu agar cepat & tetap ada saat offline
+    List<FamilyContact> localContacts = [];
     try {
       _prefs = await SharedPreferences.getInstance();
-      final raw = _prefs?.getString(_kFamilyContactsKey);
-
+      final raw = _prefs?.getString(_storageKey);
       if (raw != null && raw.isNotEmpty) {
         final List<dynamic> decoded = jsonDecode(raw) as List<dynamic>;
-        final list = decoded
+        localContacts = decoded
             .map((e) => FamilyContact.fromJson(e as Map<String, dynamic>))
             .toList();
-        state = state.copyWith(contacts: list, isLoading: false);
-      } else {
-        // Data default awal agar tampilan sesuai desain
-        final defaultContacts = [
-          const FamilyContact(
-            id: '1',
-            name: 'Rina Susanti',
-            relationship: 'Ibu',
-            phone: '081234567890',
-          ),
-        ];
-        await _save(defaultContacts);
-        state = state.copyWith(contacts: defaultContacts, isLoading: false);
+        state = state.copyWith(contacts: localContacts);
       }
     } catch (e) {
-      debugPrint('Error loading family contacts: $e');
+      debugPrint('Error loading local family contacts: $e');
+    }
+
+    // 2. Jika akun login, sinkronkan dengan backend per-akun
+    if (_isAuthenticated) {
+      try {
+        final client = ApiClient();
+        client.init();
+        final res = await client.dio
+            .get('/family-contacts')
+            .timeout(const Duration(seconds: 6));
+
+        if (res.statusCode == 200 && res.data is List) {
+          final remoteList = (res.data as List)
+              .map((e) => FamilyContact.fromJson(e as Map<String, dynamic>))
+              .toList();
+          await _save(remoteList);
+          state = state.copyWith(contacts: remoteList, isLoading: false);
+          return;
+        }
+      } catch (e) {
+        debugPrint('Error syncing family contacts from API: $e');
+      }
+      state = state.copyWith(isLoading: false);
+      return;
+    }
+
+    // 3. Mode tamu: tampilkan contoh default jika belum ada data lokal
+    if (localContacts.isEmpty) {
+      final defaultContacts = [
+        const FamilyContact(
+          id: '1',
+          name: 'Rina Susanti',
+          relationship: 'Ibu',
+          phone: '081234567890',
+        ),
+      ];
+      await _save(defaultContacts);
+      state = state.copyWith(contacts: defaultContacts, isLoading: false);
+    } else {
       state = state.copyWith(isLoading: false);
     }
   }
@@ -74,7 +118,7 @@ class FamilyContactsNotifier extends StateNotifier<FamilyContactsState> {
     try {
       _prefs ??= await SharedPreferences.getInstance();
       final jsonStr = jsonEncode(list.map((c) => c.toJson()).toList());
-      await _prefs?.setString(_kFamilyContactsKey, jsonStr);
+      await _prefs?.setString(_storageKey, jsonStr);
     } catch (e) {
       debugPrint('Error saving family contacts: $e');
     }
@@ -85,12 +129,36 @@ class FamilyContactsNotifier extends StateNotifier<FamilyContactsState> {
     required String relationship,
     required String phone,
   }) async {
-    final newContact = FamilyContact(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      name: name.trim(),
-      relationship: relationship.trim(),
-      phone: phone.trim(),
-    );
+    final trimmedName = name.trim();
+    final trimmedRel = relationship.trim();
+    final trimmedPhone = phone.trim();
+
+    FamilyContact? created;
+    if (_isAuthenticated) {
+      try {
+        final client = ApiClient();
+        client.init();
+        final res = await client.dio.post('/family-contacts', data: {
+          'name': trimmedName,
+          'relationship': trimmedRel,
+          'phone': trimmedPhone,
+        }).timeout(const Duration(seconds: 6));
+        if ((res.statusCode == 200 || res.statusCode == 201) &&
+            res.data is Map<String, dynamic>) {
+          created = FamilyContact.fromJson(res.data as Map<String, dynamic>);
+        }
+      } catch (e) {
+        debugPrint('Error saving family contact to API: $e');
+      }
+    }
+
+    final newContact = created ??
+        FamilyContact(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          name: trimmedName,
+          relationship: trimmedRel,
+          phone: trimmedPhone,
+        );
     final updated = [...state.contacts, newContact];
     state = state.copyWith(contacts: updated);
     await _save(updated);
@@ -102,24 +170,54 @@ class FamilyContactsNotifier extends StateNotifier<FamilyContactsState> {
     required String relationship,
     required String phone,
   }) async {
+    final trimmedName = name.trim();
+    final trimmedRel = relationship.trim();
+    final trimmedPhone = phone.trim();
+
     final updated = state.contacts.map((c) {
       if (c.id == id) {
         return c.copyWith(
-          name: name.trim(),
-          relationship: relationship.trim(),
-          phone: phone.trim(),
+          name: trimmedName,
+          relationship: trimmedRel,
+          phone: trimmedPhone,
         );
       }
       return c;
     }).toList();
     state = state.copyWith(contacts: updated);
     await _save(updated);
+
+    if (_isAuthenticated) {
+      try {
+        final client = ApiClient();
+        client.init();
+        await client.dio.patch('/family-contacts/$id', data: {
+          'name': trimmedName,
+          'relationship': trimmedRel,
+          'phone': trimmedPhone,
+        }).timeout(const Duration(seconds: 6));
+      } catch (e) {
+        debugPrint('Error updating family contact in API: $e');
+      }
+    }
   }
 
   Future<void> deleteContact(String id) async {
     final updated = state.contacts.where((c) => c.id != id).toList();
     state = state.copyWith(contacts: updated);
     await _save(updated);
+
+    if (_isAuthenticated) {
+      try {
+        final client = ApiClient();
+        client.init();
+        await client.dio
+            .delete('/family-contacts/$id')
+            .timeout(const Duration(seconds: 6));
+      } catch (e) {
+        debugPrint('Error deleting family contact in API: $e');
+      }
+    }
   }
 
   /// Format nomor telepon lokal (08...) ke format internasional WhatsApp (628...)
@@ -265,5 +363,9 @@ class FamilyContactsNotifier extends StateNotifier<FamilyContactsState> {
 
 final familyContactsProvider =
     StateNotifierProvider<FamilyContactsNotifier, FamilyContactsState>((ref) {
-  return FamilyContactsNotifier();
+  final auth = ref.watch(authStateProvider);
+  return FamilyContactsNotifier(
+    userId: auth.user?.id,
+    isAuthenticated: auth.isAuthenticated,
+  );
 });
