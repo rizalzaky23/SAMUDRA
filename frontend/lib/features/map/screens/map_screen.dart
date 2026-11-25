@@ -7,22 +7,44 @@ import 'package:latlong2/latlong.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:dio/dio.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/providers/settings_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/safe_point_model.dart';
 import '../providers/safe_points_provider.dart';
 
-// ─── OSRM Routing Service ────────────────────────────────────────────────────
+// ─── Disk-Cached Tile Provider (peta tetap tampil saat offline jika pernah dibuka) ──
+
+class _CachedTileProvider extends TileProvider {
+  _CachedTileProvider();
+
+  @override
+  ImageProvider getImage(TileCoordinates coordinates, TileLayer options) {
+    return CachedNetworkImageProvider(
+      getTileUrl(coordinates, options),
+      headers: const {'User-Agent': 'com.samudra.app'},
+    );
+  }
+}
+
+// ─── OSRM Routing Service (dengan Offline Route Cache & Direct Fallback) ─────
 
 class OsrmRoute {
   final List<LatLng> points;
   final double distanceMeters;
   final double durationSeconds;
+  final bool isOffline;
+  final bool isDirectLine;
 
   const OsrmRoute({
     required this.points,
     required this.distanceMeters,
     required this.durationSeconds,
+    this.isOffline = false,
+    this.isDirectLine = false,
   });
 
   String get distanceText {
@@ -43,18 +65,132 @@ class OsrmRoute {
 
 class OsrmService {
   static final _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 15),
-    receiveTimeout: const Duration(seconds: 15),
+    connectTimeout: const Duration(seconds: 6),
+    receiveTimeout: const Duration(seconds: 6),
     validateStatus: (status) => true,
   ));
 
-  /// Fetch route from OSRM public server (completely free, no API key needed).
+  static String _cacheKey(LatLng destination, String profile) =>
+      'cached_route_${destination.latitude.toStringAsFixed(4)}_'
+      '${destination.longitude.toStringAsFixed(4)}_$profile';
+
+  static Future<bool> _isDeviceOffline() async {
+    try {
+      final results = await Connectivity().checkConnectivity();
+      return results.isEmpty ||
+          results.every((r) => r == ConnectivityResult.none);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Arah mata angin dari [origin] ke [destination] (berguna saat rute offline garis lurus).
+  static String bearingLabel(LatLng origin, LatLng destination) {
+    final raw = Geolocator.bearingBetween(
+      origin.latitude,
+      origin.longitude,
+      destination.latitude,
+      destination.longitude,
+    );
+    final deg = (raw + 360) % 360;
+    const dirs = [
+      'Utara',
+      'Timur Laut',
+      'Timur',
+      'Tenggara',
+      'Selatan',
+      'Barat Daya',
+      'Barat',
+      'Barat Laut',
+    ];
+    return dirs[((deg + 22.5) ~/ 45) % 8];
+  }
+
+  /// Simpan rute OSRM yang berhasil dihitung agar bisa dipakai ulang saat offline.
+  static Future<void> saveCachedRoute({
+    required LatLng origin,
+    required LatLng destination,
+    required String profile,
+    required OsrmRoute route,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final payload = jsonEncode({
+        'origin': [origin.latitude, origin.longitude],
+        'distanceMeters': route.distanceMeters,
+        'durationSeconds': route.durationSeconds,
+        'points': route.points.map((p) => [p.latitude, p.longitude]).toList(),
+      });
+      await prefs.setString(_cacheKey(destination, profile), payload);
+    } catch (e) {
+      debugPrint('Failed to cache route: $e');
+    }
+  }
+
+  /// Muat rute tersimpan jika origin saat ini masih dekat (<= 800m) dari origin cache.
+  /// shortcut: tidak ada engine routing jalan offline (seperti GraphHopper/Valhalla) di APK;
+  /// upgrade ke bundle graph lokal bila user butuh belokan jalan baru saat offline total di area baru.
+  static Future<OsrmRoute?> loadCachedRoute({
+    required LatLng origin,
+    required LatLng destination,
+    required String profile,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_cacheKey(destination, profile));
+      if (raw == null || raw.isEmpty) return null;
+
+      final data = jsonDecode(raw) as Map<String, dynamic>;
+      final cachedOrigin = data['origin'] as List<dynamic>;
+      final originDist = Geolocator.distanceBetween(
+        origin.latitude,
+        origin.longitude,
+        (cachedOrigin[0] as num).toDouble(),
+        (cachedOrigin[1] as num).toDouble(),
+      );
+      if (originDist > 800) return null;
+
+      final rawPoints = data['points'] as List<dynamic>;
+      final points = rawPoints
+          .map((p) => LatLng((p[0] as num).toDouble(), (p[1] as num).toDouble()))
+          .toList();
+      if (points.isEmpty) return null;
+
+      if (originDist > 30) {
+        points.insert(0, origin);
+      }
+
+      return OsrmRoute(
+        points: points,
+        distanceMeters: (data['distanceMeters'] as num).toDouble() + originDist,
+        durationSeconds: (data['durationSeconds'] as num).toDouble(),
+        isOffline: true,
+        isDirectLine: false,
+      );
+    } catch (e) {
+      debugPrint('Failed to load cached route: $e');
+      return null;
+    }
+  }
+
+  /// Fetch route from OSRM public server; otomatis pakai cache lokal / garis kompas saat offline.
   /// Profile: 'foot' (walking), 'car' (driving), 'bike' (cycling)
-  static Future<OsrmRoute?> getRoute({
+  static Future<OsrmRoute> getRoute({
     required LatLng origin,
     required LatLng destination,
     String profile = 'foot',
+    bool forceOffline = false,
   }) async {
+    final offline = forceOffline || await _isDeviceOffline();
+    if (offline) {
+      final cached = await loadCachedRoute(
+        origin: origin,
+        destination: destination,
+        profile: profile,
+      );
+      return cached ?? _fallbackRoute(origin, destination, profile);
+    }
+
     try {
       final url =
           'https://router.project-osrm.org/route/v1/$profile/'
@@ -67,8 +203,10 @@ class OsrmService {
       debugPrint('OSRM status: ${response.statusCode}');
 
       if ((response.statusCode ?? 0) != 200) {
-        debugPrint('OSRM non-200: ${response.statusCode} - using fallback route');
-        return _fallbackRoute(origin, destination, profile);
+        debugPrint('OSRM non-200: ${response.statusCode} - using offline/fallback route');
+        final cached = await loadCachedRoute(
+            origin: origin, destination: destination, profile: profile);
+        return cached ?? _fallbackRoute(origin, destination, profile);
       }
 
       final data = response.data is String
@@ -76,8 +214,10 @@ class OsrmService {
           : response.data as Map<String, dynamic>;
 
       if (data['code'] != 'Ok') {
-        debugPrint('OSRM code not Ok: ${data['code']} - using fallback route');
-        return _fallbackRoute(origin, destination, profile);
+        debugPrint('OSRM code not Ok: ${data['code']} - using offline/fallback route');
+        final cached = await loadCachedRoute(
+            origin: origin, destination: destination, profile: profile);
+        return cached ?? _fallbackRoute(origin, destination, profile);
       }
 
       final route = data['routes'][0] as Map<String, dynamic>;
@@ -92,18 +232,27 @@ class OsrmService {
               ))
           .toList();
 
-      return OsrmRoute(
+      final result = OsrmRoute(
         points: points,
         distanceMeters: distanceMeters,
         durationSeconds: durationSeconds,
       );
+      await saveCachedRoute(
+        origin: origin,
+        destination: destination,
+        profile: profile,
+        route: result,
+      );
+      return result;
     } catch (e) {
-      debugPrint('OSRM error: $e - using fallback route');
-      return _fallbackRoute(origin, destination, profile);
+      debugPrint('OSRM error: $e - using offline/fallback route');
+      final cached = await loadCachedRoute(
+          origin: origin, destination: destination, profile: profile);
+      return cached ?? _fallbackRoute(origin, destination, profile);
     }
   }
 
-  /// Jalur cadangan berbasis interpolasi koordinat jika server OSRM gagal atau jarak rute ekstrem
+  /// Jalur cadangan berbasis interpolasi koordinat (garis kompas) saat offline / OSRM gagal
   static OsrmRoute _fallbackRoute(
     LatLng origin,
     LatLng destination,
@@ -134,6 +283,8 @@ class OsrmService {
       points: points,
       distanceMeters: distanceMeters,
       durationSeconds: durationSeconds,
+      isOffline: true,
+      isDirectLine: true,
     );
   }
 }
@@ -257,6 +408,7 @@ class MapScreen extends ConsumerStatefulWidget {
 class _MapScreenState extends ConsumerState<MapScreen>
     with SingleTickerProviderStateMixin {
   final _mapController = MapController();
+  final _cachedTileProvider = _CachedTileProvider();
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
@@ -389,6 +541,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
       }
     } catch (e) {
       debugPrint('Error getting initial position: $e');
+      if (mounted && ref.read(_userLocationProvider) == null) {
+        _useFallbackLocation();
+      }
     }
 
     // 2. Stream lokasi realtime
@@ -413,8 +568,21 @@ class _MapScreenState extends ConsumerState<MapScreen>
         dest.longitude,
       );
 
+      final currentRoute = ref.read(_routeProvider);
+      if (currentRoute == null) {
+        _fetchRoute(currentLatLng);
+      } else if (currentRoute.isDirectLine) {
+        final profile = ref.read(_selectedProfileProvider);
+        ref.read(_routeProvider.notifier).state = OsrmService._fallbackRoute(
+          currentLatLng,
+          dest,
+          profile,
+        );
+      }
+
       setState(() {
         _remainingDistanceMeters = distanceToDest;
+        _remainingDurationSeconds = distanceToDest / 1.25;
       });
 
       // Jika sedang navigasi aktif, gerakkan kamera mengikuti user
@@ -579,6 +747,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     ref.read(_routeProvider.notifier).state = null;
 
     final profile = ref.read(_selectedProfileProvider);
+    final isOfflineMode = ref.read(settingsProvider).offlineMode;
     final evacPoints = _getCurrentEvacPoints(from);
     final destination = evacPoints[_selectedEvacIndex % evacPoints.length].location;
 
@@ -586,27 +755,26 @@ class _MapScreenState extends ConsumerState<MapScreen>
       origin: from,
       destination: destination,
       profile: profile,
+      forceOffline: isOfflineMode,
     );
 
     if (mounted) {
       ref.read(_routeProvider.notifier).state = route;
       ref.read(_isLoadingRouteProvider.notifier).state = false;
-      if (route != null) {
-        setState(() {
-          _remainingDistanceMeters = route.distanceMeters;
-          _remainingDurationSeconds = route.durationSeconds;
-        });
+      setState(() {
+        _remainingDistanceMeters = route.distanceMeters;
+        _remainingDurationSeconds = route.durationSeconds;
+      });
 
-        // Fit map ke seluruh rute jika tidak sedang navigasi aktif
-        if (!_isNavigating && route.points.isNotEmpty) {
-          final bounds = LatLngBounds.fromPoints(route.points);
-          _mapController.fitCamera(
-            CameraFit.bounds(
-              bounds: bounds,
-              padding: const EdgeInsets.fromLTRB(40, 120, 40, 280),
-            ),
-          );
-        }
+      // Fit map ke seluruh rute jika tidak sedang navigasi aktif
+      if (!_isNavigating && route.points.isNotEmpty) {
+        final bounds = LatLngBounds.fromPoints(route.points);
+        _mapController.fitCamera(
+          CameraFit.bounds(
+            bounds: bounds,
+            padding: const EdgeInsets.fromLTRB(40, 120, 40, 280),
+          ),
+        );
       }
     }
   }
@@ -714,6 +882,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.samudra.app',
+                tileProvider: _cachedTileProvider,
               ),
               // Danger zone circle
               CircleLayer(
@@ -728,7 +897,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                   ),
                 ],
               ),
-              // Route polyline dari OSRM
+              // Route polyline dari OSRM / offline cache / arah kompas
               if (route != null)
                 PolylineLayer(
                   polylines: [
@@ -738,11 +907,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
                       color: AppColors.primary.withValues(alpha: 0.25),
                       strokeWidth: 8,
                     ),
-                    // Main route line
+                    // Main route line (putus-putus jika garis arah kompas offline)
                     Polyline(
                       points: route.points,
                       color: AppColors.primary,
                       strokeWidth: 4,
+                      pattern: route.isDirectLine
+                          ? StrokePattern.dashed(segments: const [10, 6])
+                          : const StrokePattern.solid(),
                     ),
                   ],
                 ),
@@ -1168,16 +1340,30 @@ class _MapScreenState extends ConsumerState<MapScreen>
                               if (route != null)
                                 Row(
                                   children: [
-                                    const Icon(Icons.route_rounded,
-                                        size: 14,
-                                        color: Color(0xFF3B6FE8)),
+                                    Icon(
+                                      route.isDirectLine
+                                          ? Icons.explore_rounded
+                                          : Icons.route_rounded,
+                                      size: 14,
+                                      color: route.isOffline
+                                          ? const Color(0xFFD97706)
+                                          : const Color(0xFF3B6FE8),
+                                    ),
                                     const SizedBox(width: 4),
-                                    Text(
-                                      '${route.distanceText}  ·  ${route.durationText}',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 13,
-                                        color: AppColors.textSecondary,
-                                        fontWeight: FontWeight.w500,
+                                    Expanded(
+                                      child: Text(
+                                        route.isDirectLine
+                                            ? 'Offline · Arah ${OsrmService.bearingLabel(userLocation, selectedPoint.location)} · ${route.distanceText} · ${route.durationText}'
+                                            : route.isOffline
+                                                ? 'Offline (Tersimpan) · ${route.distanceText} · ${route.durationText}'
+                                                : '${route.distanceText}  ·  ${route.durationText}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 12.5,
+                                          color: AppColors.textSecondary,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
                                     ),
                                   ],
