@@ -90,4 +90,13 @@ void main() {
     expect(OsrmService.bearingLabel(origin, const LatLng(-7.81, 110.3695)), 'Selatan');
     expect(OsrmService.bearingLabel(origin, const LatLng(-7.7956, 110.35)), 'Barat');
   });
+
+  test('latLngToTile computes valid OSM tile indices for Yogyakarta', () {
+    final z14 = OsrmService.latLngToTile(origin, 14);
+    final z15 = OsrmService.latLngToTile(origin, 15);
+    expect(z14.x, 13215);
+    expect(z14.y, 8547);
+    expect(z15.x, inInclusiveRange(z14.x * 2, z14.x * 2 + 1));
+    expect(z15.y, inInclusiveRange(z14.y * 2, z14.y * 2 + 1));
+  });
 }

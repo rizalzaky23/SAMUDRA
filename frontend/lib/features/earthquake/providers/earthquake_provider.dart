@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import '../models/earthquake_model.dart';
 import '../services/bmkg_realtime_service.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/providers/settings_provider.dart';
 
 class RiskAssessment {
   final String risk;
@@ -27,6 +28,24 @@ class RiskAssessment {
 
 /// Real-time live BMKG earthquake & tsunami early warning provider
 final earthquakeProvider = FutureProvider.autoDispose<RiskAssessment>((ref) async {
+  if (ref.watch(settingsProvider).offlineMode) {
+    return RiskAssessment(
+      risk: 'Aman',
+      distance: 142.0,
+      earthquake: EarthquakeModel(
+        id: 'gempa-latest',
+        bmkgRefId: '202609240800',
+        magnitude: '2.7',
+        depthKm: '10',
+        occurredAt: 'Mode Offline',
+        region: 'Data lokal terakhir',
+        latitude: '-8.36',
+        longitude: '120.61',
+        potentialTsunami: false,
+      ),
+    );
+  }
+
   double lat = -7.7956; // Default: Yogyakarta
   double lng = 110.3695;
 
@@ -184,6 +203,7 @@ final earthquakeProvider = FutureProvider.autoDispose<RiskAssessment>((ref) asyn
 
 /// Live BMKG 200 real-time earthquakes list (matches bmkg.go.id/gempabumi/gempabumi-realtime)
 final earthquakeHistoryProvider = FutureProvider.autoDispose<List<EarthquakeModel>>((ref) async {
+  if (ref.watch(settingsProvider).offlineMode) return [];
   // 1. Try BMKG 200 Realtime first
   try {
     final realtimeList = await BmkgRealtimeService.fetch200RealtimeEarthquakes();

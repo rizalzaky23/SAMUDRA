@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -104,6 +105,20 @@ class OsrmService {
       'Barat Laut',
     ];
     return dirs[((deg + 22.5) ~/ 45) % 8];
+  }
+
+  /// Konversi koordinat (lat, lng) ke indeks tile OSM (x, y) pada level [zoom].
+  static ({int x, int y}) latLngToTile(LatLng point, int zoom) {
+    final n = 1 << zoom;
+    final x = ((point.longitude + 180.0) / 360.0 * n).floor().clamp(0, n - 1);
+    final latRad = point.latitude * math.pi / 180.0;
+    final y = ((1.0 -
+                math.log(math.tan(latRad) + 1.0 / math.cos(latRad)) / math.pi) /
+            2.0 *
+            n)
+        .floor()
+        .clamp(0, n - 1);
+    return (x: x, y: y);
   }
 
   /// Simpan rute OSRM yang berhasil dihitung agar bisa dipakai ulang saat offline.
@@ -412,11 +427,15 @@ class _MapScreenState extends ConsumerState<MapScreen>
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
-  // Stream & Status Lokasi Realtime
+  // Stream & Status Lokasi Realtime + Konektivitas
   StreamSubscription<Position>? _positionStream;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   LocationPermission _locationPermission = LocationPermission.denied;
   bool _isLocationServiceActive = true;
   bool _useSimulationMode = false;
+  bool _isDeviceOffline = false;
+  bool _isDownloadingOffline = false;
+  bool _hasAutoPreCached = false;
 
   int _selectedEvacIndex = 0;
   bool _isNavigating = false;
@@ -437,15 +456,36 @@ class _MapScreenState extends ConsumerState<MapScreen>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
+    _initConnectivityListener();
+
     // Inisialisasi izin & lokasi realtime
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initLocationAndPermissions(userInitiated: false);
     });
   }
 
+  Future<void> _initConnectivityListener() async {
+    try {
+      final initial = await Connectivity().checkConnectivity();
+      final offline = initial.isEmpty ||
+          initial.every((r) => r == ConnectivityResult.none);
+      if (mounted) setState(() => _isDeviceOffline = offline);
+    } catch (_) {}
+
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
+      final offline = results.isEmpty ||
+          results.every((r) => r == ConnectivityResult.none);
+      if (!mounted || offline == _isDeviceOffline) return;
+      setState(() => _isDeviceOffline = offline);
+      final loc = ref.read(_userLocationProvider) ?? _jogjaCenter;
+      _fetchRoute(loc);
+    });
+  }
+
   @override
   void dispose() {
     _positionStream?.cancel();
+    _connectivitySub?.cancel();
     _pulseController.dispose();
     super.dispose();
   }
@@ -536,12 +576,21 @@ class _MapScreenState extends ConsumerState<MapScreen>
       if (mounted) {
         final initialLatLng = LatLng(pos.latitude, pos.longitude);
         ref.read(_userLocationProvider.notifier).state = initialLatLng;
-        _mapController.move(initialLatLng, 15.0);
+        try {
+          _mapController.move(initialLatLng, 15.0);
+        } catch (_) {}
         await _fetchRoute(initialLatLng);
+        // Otomatis simpan rute & tile sekitar sekali di background saat online
+        if (!_hasAutoPreCached &&
+            !_isDeviceOffline &&
+            !ref.read(settingsProvider).offlineMode) {
+          _hasAutoPreCached = true;
+          unawaited(_downloadOfflineArea(silent: true));
+        }
       }
     } catch (e) {
       debugPrint('Error getting initial position: $e');
-      if (mounted && ref.read(_userLocationProvider) == null) {
+      if (mounted && ref.read(_routeProvider) == null) {
         _useFallbackLocation();
       }
     }
@@ -767,15 +816,106 @@ class _MapScreenState extends ConsumerState<MapScreen>
       });
 
       // Fit map ke seluruh rute jika tidak sedang navigasi aktif
-      if (!_isNavigating && route.points.isNotEmpty) {
-        final bounds = LatLngBounds.fromPoints(route.points);
-        _mapController.fitCamera(
-          CameraFit.bounds(
-            bounds: bounds,
-            padding: const EdgeInsets.fromLTRB(40, 120, 40, 280),
+      if (!_isNavigating && route.points.length >= 2) {
+        try {
+          final bounds = LatLngBounds.fromPoints(route.points);
+          _mapController.fitCamera(
+            CameraFit.bounds(
+              bounds: bounds,
+              padding: const EdgeInsets.fromLTRB(40, 120, 40, 280),
+            ),
+          );
+        } catch (_) {}
+      }
+    }
+  }
+
+  /// Simpan peta sekitar + semua rute evakuasi ke cache lokal untuk mode offline.
+  Future<void> _downloadOfflineArea({bool silent = false}) async {
+    if (_isDownloadingOffline || !mounted) return;
+    final offlineNow = _isDeviceOffline || ref.read(settingsProvider).offlineMode;
+    if (offlineNow) {
+      if (!silent) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Aktifkan internet & matikan Mode Offline dulu untuk mengunduh peta.',
+              style: GoogleFonts.inter(fontSize: 13),
+            ),
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
+      return;
+    }
+
+    setState(() => _isDownloadingOffline = true);
+    try {
+      await ref.read(safePointsProvider.notifier).loadSafePoints();
+      final origin = ref.read(_userLocationProvider) ?? _jogjaCenter;
+      final profile = ref.read(_selectedProfileProvider);
+      final evacPoints = _getCurrentEvacPoints(origin).take(5).toList();
+
+      // 1. Cache rute jalan OSRM ke semua titik aman terdekat
+      int savedRoutes = 0;
+      for (final point in evacPoints) {
+        final r = await OsrmService.getRoute(
+          origin: origin,
+          destination: point.location,
+          profile: profile,
+          forceOffline: false,
+        );
+        if (!r.isDirectLine) savedRoutes++;
+      }
+
+      // 2. Pre-cache tile peta OSM sekitar user (z=14 & 15) + lokasi titik aman
+      final tileUrls = <String>{};
+      for (final zoom in [14, 15]) {
+        final c = OsrmService.latLngToTile(origin, zoom);
+        final maxTile = (1 << zoom) - 1;
+        for (int dx = -1; dx <= 1; dx++) {
+          for (int dy = -1; dy <= 1; dy++) {
+            final tx = (c.x + dx).clamp(0, maxTile);
+            final ty = (c.y + dy).clamp(0, maxTile);
+            tileUrls.add('https://tile.openstreetmap.org/$zoom/$tx/$ty.png');
+          }
+        }
+      }
+      for (final point in evacPoints) {
+        final c = OsrmService.latLngToTile(point.location, 15);
+        tileUrls.add('https://tile.openstreetmap.org/15/${c.x}/${c.y}.png');
+      }
+
+      if (mounted) {
+        await Future.wait(
+          tileUrls.map((url) async {
+            try {
+              await precacheImage(
+                CachedNetworkImageProvider(
+                  url,
+                  headers: const {'User-Agent': 'com.samudra.app'},
+                ),
+                context,
+              );
+            } catch (_) {}
+          }),
+        );
+      }
+
+      if (!silent && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Siap offline: $savedRoutes rute evakuasi & ${tileUrls.length} area peta tersimpan.',
+              style: GoogleFonts.inter(fontSize: 13),
+            ),
+            backgroundColor: const Color(0xFF059669),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isDownloadingOffline = false);
     }
   }
 
@@ -854,6 +994,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final route = ref.watch(_routeProvider);
     final isLoading = ref.watch(_isLoadingRouteProvider);
     final profile = ref.watch(_selectedProfileProvider);
+    final offlineSetting = ref.watch(settingsProvider).offlineMode;
+    final isOfflineNow = offlineSetting || _isDeviceOffline;
     final user = ref.watch(authStateProvider).user;
     final isAdmin = user?.isAdmin == true;
     final safePoints = ref.watch(safePointsProvider).points;
@@ -862,8 +1004,18 @@ class _MapScreenState extends ConsumerState<MapScreen>
         ? evacPoints[_selectedEvacIndex % evacPoints.length]
         : _jogjaEvacPoints[0];
 
+    // Hitung ulang rute otomatis saat user mengubah toggle Mode Offline di Profil
+    ref.listen<bool>(
+      settingsProvider.select((s) => s.offlineMode),
+      (prev, next) {
+        if (prev != null && prev != next) {
+          _fetchRoute(ref.read(_userLocationProvider) ?? _jogjaCenter);
+        }
+      },
+    );
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFE8F0F6),
       body: Stack(
         children: [
           // ── Full Screen Map ──
@@ -872,6 +1024,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
             options: MapOptions(
               initialCenter: userLocation,
               initialZoom: 14,
+              backgroundColor: const Color(0xFFE8F0F6),
               onLongPress: (tapPosition, point) {
                 if (isAdmin) {
                   _showAddSafePointDialog(context, point);
@@ -1058,25 +1211,45 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                 shape: BoxShape.circle,
                                 color: _isNavigating
                                     ? const Color(0xFF16A34A)
-                                    : AppColors.primary,
+                                    : isOfflineNow
+                                        ? const Color(0xFFD97706)
+                                        : AppColors.primary,
                               ),
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              _isNavigating ? 'Live' : 'Siaga',
+                              _isNavigating
+                                  ? 'Live'
+                                  : isOfflineNow
+                                      ? 'Offline'
+                                      : 'Siaga',
                               style: GoogleFonts.inter(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                                 color: _isNavigating
                                     ? const Color(0xFF16A34A)
-                                    : AppColors.textSecondary,
+                                    : isOfflineNow
+                                        ? const Color(0xFFD97706)
+                                        : AppColors.textSecondary,
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
+                    _mapButton(
+                      icon: _isDownloadingOffline
+                          ? Icons.downloading_rounded
+                          : Icons.download_for_offline_rounded,
+                      iconColor: isOfflineNow
+                          ? Colors.grey.shade400
+                          : AppColors.primary,
+                      onTap: _isDownloadingOffline
+                          ? () {}
+                          : () => _downloadOfflineArea(silent: false),
+                    ),
+                    const SizedBox(width: 8),
                     _mapButton(
                       icon: Icons.my_location_rounded,
                       onTap: () {
@@ -1086,7 +1259,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                         } else {
                           final loc = ref.read(_userLocationProvider);
                           if (loc != null) {
-                            _mapController.move(loc, 16.0);
+                            try {
+                              _mapController.move(loc, 16.0);
+                            } catch (_) {}
                           } else {
                             _initLocationAndPermissions(userInitiated: true);
                           }
@@ -1109,6 +1284,39 @@ class _MapScreenState extends ConsumerState<MapScreen>
                 ),
 
                 const SizedBox(height: 8),
+
+                // ── Banner Mode Offline aktif ──
+                if (isOfflineNow && !_isNavigating) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFBEB),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFDE68A)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.wifi_off_rounded,
+                            size: 15, color: Color(0xFFD97706)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            route?.isDirectLine == true
+                                ? 'Mode Offline · Navigasi GPS arah kompas aktif'
+                                : 'Mode Offline · Menggunakan peta & rute tersimpan',
+                            style: GoogleFonts.inter(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF92400E),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                ],
 
                 // ── Navigation HUD atau GPS Status Banner ──
                 if (_isNavigating)
