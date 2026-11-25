@@ -10,6 +10,7 @@ import { ArticlesModule } from './articles/articles.module';
 import { EmergencyModule } from './emergency/emergency.module';
 import { StorageModule } from './storage/storage.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { TrackingModule } from './tracking/tracking.module';
 
 import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
@@ -47,6 +48,7 @@ import { AppController } from './app.controller';
     EmergencyModule,
     StorageModule,
     NotificationsModule,
+    TrackingModule,
   ],
 })
 export class AppModule {}

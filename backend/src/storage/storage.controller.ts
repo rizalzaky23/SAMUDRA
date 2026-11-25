@@ -3,6 +3,7 @@ import {
   Post,
   UseInterceptors,
   UploadedFile,
+  UploadedFiles,
   UseGuards,
   Query,
   BadRequestException,
@@ -102,6 +103,79 @@ export class StorageController {
       key,
       size: file.size,
       mimetype: file.mimetype,
+    };
+  }
+
+  /**
+   * Upload beberapa file sekaligus ke Cloudflare R2 (misal untuk multi gambar artikel).
+   * Menerima field multipart 'files'.
+   *
+   * Gunakan ?folder=articles|mitigasi|peralatan|general
+   */
+  @Post('upload-multiple')
+  @ApiOperation({
+    summary: '[Admin] Upload banyak file sekaligus ke Cloudflare R2',
+    description:
+      'Upload lebih dari 1 gambar/file sekaligus (hingga 20 file). Kembalikan array URL dan detail file yang bisa disimpan di galeri artikel.',
+  })
+  @ApiQuery({
+    name: 'folder',
+    enum: ALLOWED_FOLDERS,
+    required: false,
+    description: 'Sub-folder tujuan (default: articles)',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        files: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+          description: 'Pilih beberapa gambar/file sekaligus',
+        },
+      },
+      required: ['files'],
+    },
+  })
+  @UseInterceptors(
+    FilesInterceptor('files', 20, {
+      storage: memoryStorage(),
+    }),
+  )
+  async uploadMultiple(
+    @UploadedFiles(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 50 * 1024 * 1024 }),
+          new FileTypeValidator({
+            fileType: /(image\/(jpeg|jpg|png|webp|gif|svg\+xml)|video\/(mp4|webm|quicktime)|application\/pdf|application\/octet-stream)/,
+            fallbackToMimetype: true,
+          } as any),
+        ],
+        fileIsRequired: true,
+      }),
+    )
+    files: Express.Multer.File[],
+    @Query('folder') folder: AllowedFolder = 'articles',
+  ): Promise<{
+    urls: string[];
+    files: Array<{ url: string; key: string; size: number; mimetype: string }>;
+  }> {
+    if (!ALLOWED_FOLDERS.includes(folder)) {
+      throw new BadRequestException(
+        `Folder tidak valid. Gunakan salah satu: ${ALLOWED_FOLDERS.join(', ')}`,
+      );
+    }
+
+    if (!files || files.length === 0) {
+      throw new BadRequestException('Tidak ada file yang diunggah');
+    }
+
+    const uploaded = await this.storageService.uploadMultipleFiles(files, folder);
+    return {
+      urls: uploaded.map((item) => item.url),
+      files: uploaded,
     };
   }
 }
