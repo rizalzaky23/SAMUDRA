@@ -66,14 +66,33 @@ class OsrmRoute {
 
 class OsrmService {
   static final _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 6),
-    receiveTimeout: const Duration(seconds: 6),
+    connectTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 10),
     validateStatus: (status) => true,
   ));
 
   static String _cacheKey(LatLng destination, String profile) =>
       'cached_route_${destination.latitude.toStringAsFixed(4)}_'
       '${destination.longitude.toStringAsFixed(4)}_$profile';
+
+  static double _speedMps(String profile) {
+    if (profile == 'bike') return 3.9; // ~14 km/jam
+    if (profile == 'car') return 9.7; // ~35 km/jam
+    return 1.25; // ~4.5 km/jam jalan kaki
+  }
+
+  static double _polylineLengthMeters(List<LatLng> points) {
+    double total = 0;
+    for (int i = 0; i < points.length - 1; i++) {
+      total += Geolocator.distanceBetween(
+        points[i].latitude,
+        points[i].longitude,
+        points[i + 1].latitude,
+        points[i + 1].longitude,
+      );
+    }
+    return total;
+  }
 
   static Future<bool> _isDeviceOffline() async {
     try {
@@ -142,9 +161,10 @@ class OsrmService {
     }
   }
 
-  /// Muat rute tersimpan jika origin saat ini masih dekat (<= 800m) dari origin cache.
-  /// shortcut: tidak ada engine routing jalan offline (seperti GraphHopper/Valhalla) di APK;
-  /// upgrade ke bundle graph lokal bila user butuh belokan jalan baru saat offline total di area baru.
+  /// Muat rute tersimpan jika posisi user masih dekat (<= 5km) dari rute cache.
+  /// Jika profil yg dipilih belum di-cache, pakai rute profil lain utk tujuan yg sama.
+  /// shortcut: tidak ada engine routing jalan offline (GraphHopper/Valhalla) di APK;
+  /// upgrade ke bundle graph lokal bila user butuh belokan jalan baru di luar area cache.
   static Future<OsrmRoute?> loadCachedRoute({
     required LatLng origin,
     required LatLng destination,
@@ -152,33 +172,61 @@ class OsrmService {
   }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_cacheKey(destination, profile));
+      String? raw = prefs.getString(_cacheKey(destination, profile));
+      String matchedProfile = profile;
+      if (raw == null || raw.isEmpty) {
+        for (final alt in const ['foot', 'car', 'bike']) {
+          if (alt == profile) continue;
+          final candidate = prefs.getString(_cacheKey(destination, alt));
+          if (candidate != null && candidate.isNotEmpty) {
+            raw = candidate;
+            matchedProfile = alt;
+            break;
+          }
+        }
+      }
       if (raw == null || raw.isEmpty) return null;
 
       final data = jsonDecode(raw) as Map<String, dynamic>;
-      final cachedOrigin = data['origin'] as List<dynamic>;
-      final originDist = Geolocator.distanceBetween(
-        origin.latitude,
-        origin.longitude,
-        (cachedOrigin[0] as num).toDouble(),
-        (cachedOrigin[1] as num).toDouble(),
-      );
-      if (originDist > 800) return null;
-
       final rawPoints = data['points'] as List<dynamic>;
       final points = rawPoints
           .map((p) => LatLng((p[0] as num).toDouble(), (p[1] as num).toDouble()))
           .toList();
-      if (points.isEmpty) return null;
+      if (points.length < 2) return null;
 
-      if (originDist > 30) {
-        points.insert(0, origin);
+      // Cari titik terdekat pada polyline tersimpan dari posisi user saat ini
+      int nearestIdx = 0;
+      double nearestDist = double.infinity;
+      for (int i = 0; i < points.length; i++) {
+        final d = Geolocator.distanceBetween(
+          origin.latitude,
+          origin.longitude,
+          points[i].latitude,
+          points[i].longitude,
+        );
+        if (d < nearestDist) {
+          nearestDist = d;
+          nearestIdx = i;
+        }
+      }
+      if (nearestDist > 5000) return null;
+
+      final sliced = points.sublist(nearestIdx);
+      if (nearestDist > 20) {
+        sliced.insert(0, origin);
       }
 
+      final distMeters = (nearestIdx == 0 && matchedProfile == profile)
+          ? (data['distanceMeters'] as num).toDouble() + nearestDist
+          : _polylineLengthMeters(sliced);
+      final durationSec = (nearestIdx == 0 && matchedProfile == profile)
+          ? (data['durationSeconds'] as num).toDouble()
+          : (distMeters / _speedMps(profile)).clamp(60.0, 86400.0);
+
       return OsrmRoute(
-        points: points,
-        distanceMeters: (data['distanceMeters'] as num).toDouble() + originDist,
-        durationSeconds: (data['durationSeconds'] as num).toDouble(),
+        points: sliced,
+        distanceMeters: distMeters,
+        durationSeconds: durationSec,
         isOffline: true,
         isDirectLine: false,
       );
@@ -188,7 +236,37 @@ class OsrmService {
     }
   }
 
-  /// Fetch route from OSRM public server; otomatis pakai cache lokal / garis kompas saat offline.
+  static Future<OsrmRoute?> _fetchFromOsrmUrl(String url) async {
+    try {
+      debugPrint('OSRM request: $url');
+      final response = await _dio.get(url);
+      if ((response.statusCode ?? 0) != 200) return null;
+
+      final data = response.data is String
+          ? jsonDecode(response.data as String)
+          : response.data as Map<String, dynamic>;
+      if (data['code'] != 'Ok') return null;
+
+      final route = data['routes'][0] as Map<String, dynamic>;
+      final coords = route['geometry']['coordinates'] as List<dynamic>;
+      final points = coords
+          .map((c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()))
+          .toList();
+      if (points.length < 2) return null;
+
+      return OsrmRoute(
+        points: points,
+        distanceMeters: (route['distance'] as num).toDouble(),
+        durationSeconds: (route['duration'] as num).toDouble(),
+      );
+    } catch (e) {
+      debugPrint('OSRM mirror error ($url): $e');
+      return null;
+    }
+  }
+
+  /// Fetch route from OSRM public server (dengan mirror fallback);
+  /// otomatis pakai cache lokal / garis kompas saat offline.
   /// Profile: 'foot' (walking), 'car' (driving), 'bike' (cycling)
   static Future<OsrmRoute> getRoute({
     required LatLng origin,
@@ -206,65 +284,37 @@ class OsrmService {
       return cached ?? _fallbackRoute(origin, destination, profile);
     }
 
-    try {
-      final url =
-          'https://router.project-osrm.org/route/v1/$profile/'
-          '${origin.longitude},${origin.latitude};'
-          '${destination.longitude},${destination.latitude}'
-          '?overview=full&geometries=geojson&steps=false';
+    final coordsPath =
+        '${origin.longitude},${origin.latitude};'
+        '${destination.longitude},${destination.latitude}'
+        '?overview=full&geometries=geojson&steps=false';
+    final deProfile = profile == 'car'
+        ? 'routed-car'
+        : profile == 'bike'
+            ? 'routed-bike'
+            : 'routed-foot';
 
-      debugPrint('OSRM request: $url');
-      final response = await _dio.get(url);
-      debugPrint('OSRM status: ${response.statusCode}');
+    final urls = [
+      'https://router.project-osrm.org/route/v1/$profile/$coordsPath',
+      'https://routing.openstreetmap.de/$deProfile/route/v1/driving/$coordsPath',
+    ];
 
-      if ((response.statusCode ?? 0) != 200) {
-        debugPrint('OSRM non-200: ${response.statusCode} - using offline/fallback route');
-        final cached = await loadCachedRoute(
-            origin: origin, destination: destination, profile: profile);
-        return cached ?? _fallbackRoute(origin, destination, profile);
+    for (final url in urls) {
+      final result = await _fetchFromOsrmUrl(url);
+      if (result != null) {
+        await saveCachedRoute(
+          origin: origin,
+          destination: destination,
+          profile: profile,
+          route: result,
+        );
+        return result;
       }
-
-      final data = response.data is String
-          ? jsonDecode(response.data as String)
-          : response.data as Map<String, dynamic>;
-
-      if (data['code'] != 'Ok') {
-        debugPrint('OSRM code not Ok: ${data['code']} - using offline/fallback route');
-        final cached = await loadCachedRoute(
-            origin: origin, destination: destination, profile: profile);
-        return cached ?? _fallbackRoute(origin, destination, profile);
-      }
-
-      final route = data['routes'][0] as Map<String, dynamic>;
-      final distanceMeters = (route['distance'] as num).toDouble();
-      final durationSeconds = (route['duration'] as num).toDouble();
-
-      final coords = route['geometry']['coordinates'] as List<dynamic>;
-      final points = coords
-          .map((c) => LatLng(
-                (c[1] as num).toDouble(),
-                (c[0] as num).toDouble(),
-              ))
-          .toList();
-
-      final result = OsrmRoute(
-        points: points,
-        distanceMeters: distanceMeters,
-        durationSeconds: durationSeconds,
-      );
-      await saveCachedRoute(
-        origin: origin,
-        destination: destination,
-        profile: profile,
-        route: result,
-      );
-      return result;
-    } catch (e) {
-      debugPrint('OSRM error: $e - using offline/fallback route');
-      final cached = await loadCachedRoute(
-          origin: origin, destination: destination, profile: profile);
-      return cached ?? _fallbackRoute(origin, destination, profile);
     }
+
+    final cached = await loadCachedRoute(
+        origin: origin, destination: destination, profile: profile);
+    return cached ?? _fallbackRoute(origin, destination, profile);
   }
 
   /// Jalur cadangan berbasis interpolasi koordinat (garis kompas) saat offline / OSRM gagal
@@ -854,9 +904,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
       await ref.read(safePointsProvider.notifier).loadSafePoints();
       final origin = ref.read(_userLocationProvider) ?? _jogjaCenter;
       final profile = ref.read(_selectedProfileProvider);
-      final evacPoints = _getCurrentEvacPoints(origin).take(5).toList();
+      final evacPoints = _getCurrentEvacPoints(origin);
 
-      // 1. Cache rute jalan OSRM ke semua titik aman terdekat
+      // 1. Cache rute jalan OSRM ke semua titik aman
       int savedRoutes = 0;
       for (final point in evacPoints) {
         final r = await OsrmService.getRoute(
@@ -906,10 +956,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Siap offline: $savedRoutes rute evakuasi & ${tileUrls.length} area peta tersimpan.',
+              savedRoutes > 0
+                  ? 'Siap offline: $savedRoutes rute jalan & ${tileUrls.length} area peta tersimpan.'
+                  : 'Peta tersimpan, tapi server rute gagal dijangkau. Coba tekan unduh lagi.',
               style: GoogleFonts.inter(fontSize: 13),
             ),
-            backgroundColor: const Color(0xFF059669),
+            backgroundColor: savedRoutes > 0
+                ? const Color(0xFF059669)
+                : const Color(0xFFD97706),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -1181,7 +1235,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     Expanded(
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 10),
+                            horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(14),
@@ -1195,15 +1249,19 @@ class _MapScreenState extends ConsumerState<MapScreen>
                         ),
                         child: Row(
                           children: [
-                            Text(
-                              'Peta Evakuasi',
-                              style: GoogleFonts.inter(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary,
+                            Flexible(
+                              child: Text(
+                                'Peta Evakuasi',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.inter(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimary,
+                                ),
                               ),
                             ),
-                            const Spacer(),
+                            const SizedBox(width: 6),
                             Container(
                               width: 8,
                               height: 8,
@@ -1216,7 +1274,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                         : AppColors.primary,
                               ),
                             ),
-                            const SizedBox(width: 6),
+                            const SizedBox(width: 4),
                             Text(
                               _isNavigating
                                   ? 'Live'
@@ -1224,7 +1282,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                       ? 'Offline'
                                       : 'Siaga',
                               style: GoogleFonts.inter(
-                                fontSize: 12,
+                                fontSize: 11.5,
                                 fontWeight: FontWeight.w600,
                                 color: _isNavigating
                                     ? const Color(0xFF16A34A)

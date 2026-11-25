@@ -26,7 +26,7 @@ void main() {
     expect(route.durationSeconds, greaterThan(60));
   });
 
-  test('offline mode reuses cached road route when origin is within 800m', () async {
+  test('offline mode reuses cached road route across profiles and within 5km', () async {
     const cachedRoute = OsrmRoute(
       points: [
         origin,
@@ -44,12 +44,12 @@ void main() {
       route: cachedRoute,
     );
 
-    // Pindah ~100 meter dari origin awal
+    // Pindah ~100m dan ganti ke profil car — tetap pakai rute jalan tersimpan
     const nearbyOrigin = LatLng(-7.7948, 110.3695);
     final loaded = await OsrmService.getRoute(
       origin: nearbyOrigin,
       destination: destination,
-      profile: 'foot',
+      profile: 'car',
       forceOffline: true,
     );
 
@@ -59,7 +59,7 @@ void main() {
     expect(loaded.points.last, destination);
   });
 
-  test('offline mode falls back to direct line when origin is > 800m from cache', () async {
+  test('offline mode falls back to direct line when origin is > 5km from cache', () async {
     const cachedRoute = OsrmRoute(
       points: [origin, destination],
       distanceMeters: 2000,
@@ -72,7 +72,7 @@ void main() {
       route: cachedRoute,
     );
 
-    const farOrigin = LatLng(-7.8200, 110.3900);
+    const farOrigin = LatLng(-7.8600, 110.4500); // > 10km dari cache
     final route = await OsrmService.getRoute(
       origin: farOrigin,
       destination: destination,
